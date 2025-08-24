@@ -1,22 +1,22 @@
 import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  SafeAreaView, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  TouchableOpacity,
   ScrollView,
   Share,
   Alert,
   Image
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { 
-  Bell, 
-  Clock, 
-  Bus, 
-  AlertTriangle, 
-  Tag, 
+import {
+  Bell,
+  Clock,
+  Bus,
+  AlertTriangle,
+  Tag,
   Shield,
   Share2,
   Star,
@@ -24,14 +24,28 @@ import {
 } from 'lucide-react-native';
 import AppHeader from '../../../components/ui/AppHeader';
 
+type NotificationUI = {
+  id: string;
+  title: string;
+  message: string;
+  detailedMessage?: string;
+  timestamp: string;
+  type?: string;
+  isImportant?: boolean;
+  actionText?: string;
+  actionRoute?: string;
+  additionalInfo?: string;
+  imageUrl?: string;
+};
+
 export default function NotificationDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const [notification, setNotification] = useState(null);
+  const [notification, setNotification] = useState<NotificationUI | null>(null);
   const [isStarred, setIsStarred] = useState(false);
-  
+
   // Mock notifications data - in a real app, this would come from API/database
-  const notificationsData = {
+  const notificationsData: Record<string, NotificationUI> = {
     '1': {
       id: '1',
       title: 'Low Wallet Balance',
@@ -91,14 +105,17 @@ export default function NotificationDetailScreen() {
 
   useEffect(() => {
     // In a real app, we would fetch the notification from an API
-    if (id && notificationsData[id]) {
-      setNotification(notificationsData[id]);
-      setIsStarred(notificationsData[id].isImportant);
+    const idStr = Array.isArray(id) ? id[0] : id;
+    if (idStr && notificationsData[idStr]) {
+      const n = notificationsData[idStr] as NotificationUI;
+      setNotification(n);
+      setIsStarred(!!n.isImportant);
     }
   }, [id]);
 
   // Handle sharing notification
   const handleShare = async () => {
+    if (!notification) return;
     try {
       await Share.share({
         message: `${notification.title}\n\n${notification.detailedMessage || notification.message}`,
@@ -125,8 +142,8 @@ export default function NotificationDetailScreen() {
       "Are you sure you want to delete this notification?",
       [
         { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
+        {
+          text: "Delete",
           style: "destructive",
           onPress: () => {
             router.back();
@@ -138,13 +155,15 @@ export default function NotificationDetailScreen() {
 
   // Handle action button press
   const handleAction = () => {
-    if (notification?.actionRoute) {
-      router.push(notification.actionRoute);
+    if (!notification) return;
+    if (notification.actionRoute) {
+      // router.push has strict typed routes in Expo Router; use any to allow dynamic path strings
+      router.push(notification.actionRoute as any);
     }
   };
 
   // Get icon based on notification type
-  const getNotificationIcon = (type) => {
+  const getNotificationIcon = (type?: string) => {
     switch (type) {
       case 'alert': return <AlertTriangle size={24} color="#FF3831" />;
       case 'reminder': return <Clock size={24} color="#F59E0B" />;
@@ -156,7 +175,7 @@ export default function NotificationDetailScreen() {
   };
 
   // Get background color for the notification type badge
-  const getTypeBgColor = (type) => {
+  const getTypeBgColor = (type?: string) => {
     switch (type) {
       case 'alert': return '#FEE2E2';
       case 'reminder': return '#FEF3C7';
@@ -168,7 +187,7 @@ export default function NotificationDetailScreen() {
   };
 
   // Get text color for the notification type badge
-  const getTypeTextColor = (type) => {
+  const getTypeTextColor = (type?: string) => {
     switch (type) {
       case 'alert': return '#B91C1C';
       case 'reminder': return '#B45309';
@@ -180,8 +199,9 @@ export default function NotificationDetailScreen() {
   };
 
   // Format notification type for display
-  const formatType = (type) => {
-    return type?.charAt(0).toUpperCase() + type?.slice(1);
+  const formatType = (type?: string) => {
+    if (!type) return '';
+    return type.charAt(0).toUpperCase() + type.slice(1);
   };
 
   // Custom right element for header
@@ -199,7 +219,7 @@ export default function NotificationDetailScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <AppHeader title="Notification" statusBarStyle="light-content" />
-        
+
         <View style={styles.centerContent}>
           <Text style={styles.errorText}>Notification not found</Text>
         </View>
@@ -210,9 +230,9 @@ export default function NotificationDetailScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Remove StatusBar component as it's now handled by AppHeader */}
-      
+
       {/* Using the AppHeader component */}
-      <AppHeader 
+      <AppHeader
         title="Notification"
         rightElement={headerRightElement}
         statusBarStyle="light-content"
@@ -235,7 +255,7 @@ export default function NotificationDetailScreen() {
           </View>
 
           <Text style={styles.timestamp}>{notification.timestamp}</Text>
-          
+
           <Text style={styles.title}>{notification.title}</Text>
         </View>
 
@@ -252,8 +272,8 @@ export default function NotificationDetailScreen() {
           )}
 
           {notification.imageUrl && (
-            <Image 
-              source={{ uri: notification.imageUrl }} 
+            <Image
+              source={{ uri: notification.imageUrl }}
               style={styles.promoImage}
               resizeMode="cover"
             />
@@ -262,7 +282,7 @@ export default function NotificationDetailScreen() {
 
         {/* Action Button */}
         {notification.actionText && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionButtonContainer}
             onPress={handleAction}
           >
@@ -272,21 +292,21 @@ export default function NotificationDetailScreen() {
 
         {/* Footer Actions */}
         <View style={styles.footerActions}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.footerButton}
             onPress={handleStar}
           >
-            <Star 
-              size={20} 
-              color={isStarred ? "#F59E0B" : "#9CA3AF"} 
-              fill={isStarred ? "#F59E0B" : "transparent"} 
+            <Star
+              size={20}
+              color={isStarred ? "#F59E0B" : "#9CA3AF"}
+              fill={isStarred ? "#F59E0B" : "transparent"}
             />
             <Text style={styles.footerButtonText}>
               {isStarred ? "Important" : "Mark as important"}
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.footerButton}
             onPress={handleDelete}
           >

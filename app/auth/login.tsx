@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  SafeAreaView, 
-  StatusBar, 
-  Alert, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  SafeAreaView,
+  StatusBar,
+  Alert,
   ActivityIndicator,
   Image,
   KeyboardAvoidingView,
@@ -42,7 +42,7 @@ export default function LoginScreen() {
     }
 
     const result = await signIn(email, password);
-    
+
     if (result.success) {
       router.replace('/(tabs)');
     } else {
@@ -54,11 +54,11 @@ export default function LoginScreen() {
     <>
       <StatusBar backgroundColor="#004CFF" barStyle="light-content" />
       <SafeAreaView style={{ flex: 1, backgroundColor: '#004CFF' }}>
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
-          <ScrollView 
+          <ScrollView
             contentContainerStyle={{ flexGrow: 1 }}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -347,9 +347,9 @@ export default function LoginScreen() {
                   fontSize: 16,
                   fontWeight: '500'
                 }}>
-                  Don't have an account? 
+                  Don't have an account?
                 </Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => router.push('/auth/signup')}
                   style={{
                     paddingVertical: 8,

@@ -1,29 +1,31 @@
-import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  SafeAreaView, 
-  TouchableOpacity, 
-  ScrollView, 
-  Alert 
+import React, { useState, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  TouchableOpacity,
+  ScrollView,
+  Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { 
-  Bell, 
-  Clock, 
-  Bus, 
-  AlertTriangle, 
-  Tag, 
-  Shield, 
-  Trash2, 
+import {
+  Bell,
+  Clock,
+  Bus,
+  AlertTriangle,
+  Tag,
+  Shield,
+  Trash2,
   Check
 } from 'lucide-react-native';
 import AppHeader from '../../components/ui/AppHeader';
+import { useNotifications } from '@/hooks/useNotifications';
 
 export default function NotificationsInboxScreen() {
   const router = useRouter();
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const { notifications, loading, error, refresh } = useNotifications();
 
   // Filter options
   const filters = [
@@ -33,78 +35,24 @@ export default function NotificationsInboxScreen() {
     { id: 'alerts', label: 'Alerts' },
   ];
 
-  // Mock notifications data
-  const [notifications, setNotifications] = useState([
-    {
-      id: '1',
-      title: 'Low Wallet Balance',
-      message: 'Your wallet balance is below LKR 500. Top up your wallet to continue using our services.',
-      timestamp: 'Today, 10:30 AM',
-      type: 'alert',
-      isRead: false,
-      isImportant: true,
-    },
-    {
-      id: '2',
-      title: 'Upcoming Trip Reminder',
-      message: 'Your trip from Colombo to Kandy is scheduled for tomorrow at 9:00 AM.',
-      timestamp: 'Yesterday, 15:45 PM',
-      type: 'reminder',
-      isRead: true,
-      isImportant: true,
-    },
-    {
-      id: '3',
-      title: 'Weekend Special Offer',
-      message: 'Enjoy 20% off on all bookings this weekend. Use code WEEKEND20.',
-      timestamp: 'Jun 20, 2025',
-      type: 'promotion',
-      isRead: false,
-      isImportant: false,
-    },
-    {
-      id: '4',
-      title: 'Travel Card Activated',
-      message: 'Your travel card has been successfully activated. You can now use it for all your journeys.',
-      timestamp: 'Jun 19, 2025',
-      type: 'info',
-      isRead: true,
-      isImportant: false,
-    },
-    {
-      id: '5',
-      title: 'Route Schedule Change',
-      message: 'The schedule for Route 138 has been updated. Please check the new timings.',
-      timestamp: 'Jun 18, 2025',
-      type: 'alert',
-      isRead: false,
-      isImportant: true,
-    },
-    {
-      id: '6',
-      title: 'Password Changed',
-      message: 'Your account password was recently changed. If you did not make this change, please contact support.',
-      timestamp: 'Jun 16, 2025',
-      type: 'security',
-      isRead: true,
-      isImportant: true,
-    },
-    {
-      id: '7',
-      title: 'Booking Confirmed',
-      message: 'Your booking from Galle to Matara has been confirmed. Ticket #BKG7890.',
-      timestamp: 'Jun 15, 2025',
-      type: 'booking',
-      isRead: true,
-      isImportant: false,
-    }
-  ]);
+  // Transform backend notifications to UI model
+  const uiNotifications = useMemo(() => {
+    return notifications.map(n => ({
+      id: n.notificationId,
+      title: n.title || n.subject,
+      message: n.body,
+      timestamp: new Date(n.createdAt).toLocaleString(),
+      type: n.messageType || 'info',
+      isRead: true, // TODO: track read status in backend; for now assume read on fetch
+      isImportant: ['critical', 'warning'].includes(n.messageType)
+    }));
+  }, [notifications]);
 
   // Group notifications by date
   const groupNotificationsByDate = () => {
-    const grouped = {};
-    
-    notifications
+    const grouped: Record<string, any[]> = {};
+
+    uiNotifications
       .filter(notification => {
         if (selectedFilter === 'all') return true;
         if (selectedFilter === 'unread') return !notification.isRead;
@@ -113,17 +61,15 @@ export default function NotificationsInboxScreen() {
         return true;
       })
       .forEach(notification => {
-        const date = notification.timestamp.includes(', ')
-          ? notification.timestamp.split(', ')[0]
-          : notification.timestamp;
-        
+        const date = notification.timestamp.split(',')[0];
+
         if (!grouped[date]) {
           grouped[date] = [];
         }
-        
+
         grouped[date].push(notification);
       });
-    
+
     return grouped;
   };
 
@@ -131,36 +77,16 @@ export default function NotificationsInboxScreen() {
 
   // Mark all notifications as read
   const markAllAsRead = () => {
-    const updatedNotifications = notifications.map(notification => ({
-      ...notification,
-      isRead: true
-    }));
-    
-    setNotifications(updatedNotifications);
-    Alert.alert("Success", "All notifications marked as read");
+    Alert.alert('Info', 'Mark all as read not yet implemented');
   };
 
   // Delete all read notifications
   const deleteAllRead = () => {
-    Alert.alert(
-      "Delete Read Notifications",
-      "Are you sure you want to delete all read notifications?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Delete", 
-          style: "destructive",
-          onPress: () => {
-            const updatedNotifications = notifications.filter(notification => !notification.isRead);
-            setNotifications(updatedNotifications);
-          }
-        }
-      ]
-    );
+    Alert.alert('Info', 'Deleting read notifications not implemented yet');
   };
 
   // Get icon based on notification type
-  const getNotificationIcon = (type) => {
+  const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'alert': return <AlertTriangle size={20} color="#FF3831" />;
       case 'reminder': return <Clock size={20} color="#F59E0B" />;
@@ -172,21 +98,13 @@ export default function NotificationsInboxScreen() {
   };
 
   // Get notification background color
-  const getNotificationBgColor = (type, isRead) => {
+  const getNotificationBgColor = (type: string, isRead: boolean) => {
     if (!isRead) return '#F9FAFB';
     return 'white';
   };
 
   // Handle notification press
-  const handleNotificationPress = (id) => {
-    // Mark as read
-    const updatedNotifications = notifications.map(notification => 
-      notification.id === id ? { ...notification, isRead: true } : notification
-    );
-    
-    setNotifications(updatedNotifications);
-    
-    // Navigate to detail view
+  const handleNotificationPress = (id: string) => {
     router.push(`/notifications/${id}/detail`);
   };
 
@@ -203,9 +121,9 @@ export default function NotificationsInboxScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Remove StatusBar component as it's now handled by AppHeader */}
-      
+
       {/* Using the AppHeader component */}
-      <AppHeader 
+      <AppHeader
         title="Notifications"
         rightElement={headerRightElement}
         statusBarStyle="light-content"
@@ -213,8 +131,8 @@ export default function NotificationsInboxScreen() {
 
       {/* Filters */}
       <View style={styles.filtersContainer}>
-        <ScrollView 
-          horizontal 
+        <ScrollView
+          horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filtersContent}
         >
@@ -227,7 +145,7 @@ export default function NotificationsInboxScreen() {
               ]}
               onPress={() => setSelectedFilter(filter.id)}
             >
-              <Text 
+              <Text
                 style={[
                   styles.filterTabText,
                   selectedFilter === filter.id && styles.filterTabTextActive
@@ -242,12 +160,18 @@ export default function NotificationsInboxScreen() {
 
       {/* Notifications List */}
       <ScrollView style={styles.content}>
-        {Object.keys(groupedNotifications).length === 0 ? (
+        {loading && (
+          <View style={styles.emptyState}><Text>Loading...</Text></View>
+        )}
+        {error && !loading && (
+          <View style={styles.emptyState}><Text style={{ color: 'red' }}>{error}</Text></View>
+        )}
+        {!loading && !error && Object.keys(groupedNotifications).length === 0 ? (
           <View style={styles.emptyState}>
             <Bell size={60} color="#D1D5DB" />
             <Text style={styles.emptyStateTitle}>No notifications</Text>
             <Text style={styles.emptyStateSubtitle}>
-              {selectedFilter === 'all' 
+              {selectedFilter === 'all'
                 ? "You have no notifications yet"
                 : `No ${selectedFilter} notifications found`
               }
@@ -257,7 +181,7 @@ export default function NotificationsInboxScreen() {
           Object.entries(groupedNotifications).map(([date, dateNotifications]) => (
             <View key={date} style={styles.dateSection}>
               <Text style={styles.dateHeader}>{date}</Text>
-              
+
               {dateNotifications.map((notification) => (
                 <TouchableOpacity
                   key={notification.id}
@@ -273,7 +197,7 @@ export default function NotificationsInboxScreen() {
                   ]}>
                     {getNotificationIcon(notification.type)}
                   </View>
-                  
+
                   <View style={styles.notificationContent}>
                     <Text style={[
                       styles.notificationTitle,
@@ -281,15 +205,15 @@ export default function NotificationsInboxScreen() {
                     ]}>
                       {notification.title}
                     </Text>
-                    <Text 
-                      numberOfLines={2} 
+                    <Text
+                      numberOfLines={2}
                       style={styles.notificationMessage}
                     >
                       {notification.message}
                     </Text>
                     <Text style={styles.timeText}>
-                      {notification.timestamp.includes(', ') 
-                        ? notification.timestamp.split(', ')[1] 
+                      {notification.timestamp.includes(', ')
+                        ? notification.timestamp.split(', ')[1]
                         : notification.timestamp}
                     </Text>
                   </View>
@@ -300,13 +224,13 @@ export default function NotificationsInboxScreen() {
         )}
 
         {/* Delete read notifications button */}
-        {notifications.some(notification => notification.isRead) && (
-          <TouchableOpacity 
+        {uiNotifications.length > 0 && uiNotifications.some(notification => notification.isRead) && (
+          <TouchableOpacity
             onPress={deleteAllRead}
             style={styles.deleteAllContainer}
           >
             <Trash2 size={16} color="#6B7280" />
-            <Text style={styles.deleteAllText}>Delete read notifications</Text>
+            <Text style={styles.deleteAllText}>Delete read notifications (local)</Text>
           </TouchableOpacity>
         )}
       </ScrollView>

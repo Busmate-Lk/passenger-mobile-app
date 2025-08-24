@@ -11,6 +11,7 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import { AuthProvider } from '@/context/AuthContext';
+import NotificationInitializer from '@/components/NotificationInitializer';
 
 export default function RootLayout() {
   const [appIsReady, setAppIsReady] = useState(false);
@@ -68,10 +69,10 @@ export default function RootLayout() {
         <Stack.Screen name="tickets" options={{ headerShown: false }} />
         <Stack.Screen name="wallet" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
-        <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="tracking" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" />
       </Stack>
+      <NotificationInitializer />
       {Platform.OS === 'ios' && <ExpoStatusBar style="light" />}
     </AuthProvider>
   );
