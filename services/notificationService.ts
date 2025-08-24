@@ -117,7 +117,13 @@ export async function ensureDevicePushRegistered(authToken?: string) {
         });
 
         if (!response.ok) {
-            console.error('[ensureDevicePushRegistered] Failed to register device push token', response);
+            let bodyText: string | undefined;
+            try { bodyText = await response.text(); } catch { }
+            console.error('[ensureDevicePushRegistered] Failed to register device push token', {
+                status: response.status,
+                url: response.url,
+                body: bodyText
+            });
             return null;
         }
 

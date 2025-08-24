@@ -33,3 +33,13 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# Firebase service account secrets (should not be committed)
+firebase-adminsdk-*.json
+*-firebase-adminsdk-*.json
+*serviceaccount*.json
+serviceAccount.json
+firebase-service-account.json
+
+# If you accidentally add a google-services.json for production, you may still want to allow it
+# but ensure secrets are stored via EAS secrets or env; keep it tracked only if safe.

@@ -27,7 +27,7 @@ export function useNotifications() {
         console.log('[useNotifications] effect run', {
             isAuthenticated,
             hasAccessToken: !!accessToken,
-            accessTokenPreview: accessToken ? accessToken.substring(0, 12) + '...' : null,
+            accessToken,
             registered
         });
         if (!isAuthenticated) {
