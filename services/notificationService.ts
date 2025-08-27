@@ -6,10 +6,11 @@ import { API_BASE_URL } from '@/config';
 // Adjust paths or config as needed
 // Server endpoints derived from backend notification service
 function ensureApiPrefix(base: string) {
-    if (!base) return base;
-    // remove trailing slash
-    const b = base.endsWith('/') ? base.slice(0, -1) : base;
-    return b.endsWith('/api') ? b : `${b}/api`;
+    if (!base) return '';
+    const trimmed = base.endsWith('/') ? base.slice(0, -1) : base;
+    // Only append /api if not already present and if base does not already end with known service path
+    if (trimmed.endsWith('/api')) return trimmed;
+    return `${trimmed}/api`;
 }
 
 const API_BASE = ensureApiPrefix(API_BASE_URL || '');
@@ -83,12 +84,20 @@ export async function ensureDevicePushRegistered(authToken?: string) {
             if (!granted) return null;
             token = await getFcmToken();
         }
-        if (!token) return null;
+        if (!token) {
+            console.log('[ensureDevicePushRegistered] No FCM token available after permission/token request');
+            return null;
+        }
 
         console.log('[ensureDevicePushRegistered] Sending registration request with FCM token:', token);
 
         // Register with backend
-        const response = await fetch(`${MOBILE_PUSH_API}/register`, {
+        // Persist token locally before network (so we don't re-request each app open)
+        try { await AsyncStorage.setItem('device_push_token', token); } catch { }
+
+        const url = `${MOBILE_PUSH_API}/register`;
+        console.log('[ensureDevicePushRegistered] POST', url);
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -113,6 +122,7 @@ export async function ensureDevicePushRegistered(authToken?: string) {
         }
 
         console.log('[ensureDevicePushRegistered] Registration request completed');
+        // already stored above
         return token;
     } catch (e) {
         console.warn('Failed to register device push token', e);
@@ -159,4 +169,30 @@ export function setupNotificationListeners(onReceive?: (n: any) => void, onRespo
         unsubscribeOnMessage();
         unsubscribeOpened();
     };
+}
+
+// Listen for FCM token refresh and re-register
+export function listenForTokenRefresh(authToken?: string) {
+    return messaging().onTokenRefresh(async (newToken: string) => {
+        console.log('[FCM] Token refreshed, updating backend');
+        try {
+            await AsyncStorage.setItem('device_push_token', newToken);
+            const url = `${MOBILE_PUSH_API}/register`;
+            console.log('[listenForTokenRefresh] POST', url);
+            await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+                },
+                body: JSON.stringify({
+                    deviceToken: newToken,
+                    platform: Platform.OS,
+                    appVersion: '1.0.0'
+                })
+            });
+        } catch (err) {
+            console.warn('[FCM] Failed to update refreshed token', err);
+        }
+    });
 }

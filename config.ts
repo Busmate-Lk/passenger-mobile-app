@@ -2,7 +2,8 @@ export const userServiceUrl = "http://18.140.161.237:8081";
 export const routeServiceUrl = "http://18.140.161.237:8080";
 // Base URL for notification service (adjust if different host/port)
 // "http://13.51.177.104:8080"
-export const notificationServiceUrl = "http://192.168.1.4:8080";
+// For Android emulator use 10.0.2.2 instead of localhost
+export const notificationServiceUrl = "http://13.51.177.104:8080";
 export const API_BASE_URL = notificationServiceUrl; // For notificationService.ts
 export const apiKey = "your_api_key";
 export const timeout = 5000;
