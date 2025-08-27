@@ -23,6 +23,25 @@
           "other_platform_oauth_client": []
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:471068670200:android:73ecb2e5b87d563bf4e30d",
+        "android_client_info": {
+          "package_name": "com.kavindadimuthu.busmatepassengerapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgpDU03VX1EMWaHgPId9Y84Hf9MWi3xRM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
     }
   ],
   "configuration_version": "1"

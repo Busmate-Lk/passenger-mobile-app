@@ -1,8 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import messaging from '@react-native-firebase/messaging';
+import { Alert, Platform } from 'react-native';
 import { API_BASE_URL } from '@/config';
 
 // Adjust paths or config as needed
@@ -57,39 +55,21 @@ export async function recordNotificationClick(notificationId: string) {
     }
 }
 
-// ---- Push (FCM via Expo) ----
+// ---- Push (Pure FCM via react-native-firebase) ----
 
-async function registerForPushNotificationsAsync(): Promise<string | null> {
-    if (!Device.isDevice) {
-        console.log('Must use physical device for push notifications');
-        return null;
-    }
+async function requestMessagingPermission(): Promise<boolean> {
+    const authStatus = await messaging().requestPermission();
+    const enabled = authStatus === messaging.AuthorizationStatus.AUTHORIZED || authStatus === messaging.AuthorizationStatus.PROVISIONAL;
+    if (!enabled) console.log('[FCM] Notification permission not granted');
+    return enabled;
+}
 
-    // Request permissions
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-    }
-    if (finalStatus !== 'granted') {
-        console.log('Failed to get push token for push notification!');
-        return null;
-    }
-
+async function getFcmToken(): Promise<string | null> {
     try {
-        // Attempt to get a native device push token (FCM/APNS) on bare/standalone builds
-        const nativeToken = await Notifications.getDevicePushTokenAsync().catch(() => null);
-        if (nativeToken?.data) return nativeToken.data;
+        const token = await messaging().getToken();
+        return token;
     } catch (e) {
-        console.log('Native device push token not available yet, falling back to Expo token');
-    }
-    try {
-        const projectId = (Constants as any)?.expoConfig?.extra?.eas?.projectId || (Constants as any)?.easConfig?.projectId;
-        const tokenData = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : undefined as any);
-        return tokenData.data;
-    } catch (e) {
-        console.warn('Error getting Expo push token', e);
+        console.warn('[FCM] Failed to get token', e);
         return null;
     }
 }
@@ -97,10 +77,15 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
 export async function ensureDevicePushRegistered(authToken?: string) {
     try {
         const stored = await AsyncStorage.getItem('device_push_token');
-        let token = stored || await registerForPushNotificationsAsync();
+        let token = stored;
+        if (!token) {
+            const granted = await requestMessagingPermission();
+            if (!granted) return null;
+            token = await getFcmToken();
+        }
         if (!token) return null;
 
-        console.log('[ensureDevicePushRegistered] Sending registration request with token:', token);
+        console.log('[ensureDevicePushRegistered] Sending registration request with FCM token:', token);
 
         // Register with backend
         const response = await fetch(`${MOBILE_PUSH_API}/register`, {
@@ -112,7 +97,7 @@ export async function ensureDevicePushRegistered(authToken?: string) {
             body: JSON.stringify({
                 deviceToken: token,
                 platform: Platform.OS,
-                appVersion: Constants.nativeAppVersion || Constants.expoVersion
+                appVersion: '1.0.0'
             })
         });
 
@@ -137,37 +122,41 @@ export async function ensureDevicePushRegistered(authToken?: string) {
 
 
 export async function unregisterDevicePush(authToken?: string) {
-    const token = await AsyncStorage.getItem('device_push_token');
-    if (!token) return;
     try {
+        const token = await AsyncStorage.getItem('device_push_token');
+        if (!token) return;
         await fetch(`${MOBILE_PUSH_API}/unregister`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
             body: JSON.stringify({ deviceToken: token })
         });
+        await AsyncStorage.removeItem('device_push_token');
     } catch (e) {
         console.warn('Failed to unregister push token', e);
     }
 }
 
-// Configure notification handler (foreground behavior)
-Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: false,
-        shouldSetBadge: false
-    })
-});
-
-export function setupNotificationListeners(onReceive?: (n: Notifications.Notification) => void, onResponse?: (r: Notifications.NotificationResponse) => void) {
-    const subReceive = Notifications.addNotificationReceivedListener((notification: Notifications.Notification) => {
-        if (onReceive) onReceive(notification);
+export function setupNotificationListeners(onReceive?: (n: any) => void, onResponse?: (r: any) => void) {
+    // Foreground messages
+    const unsubscribeOnMessage = messaging().onMessage(async (remoteMessage: any) => {
+        console.log('[FCM] Foreground message received', remoteMessage?.messageId);
+        if (onReceive) onReceive(remoteMessage);
+        Alert.alert(remoteMessage?.notification?.title || 'Notification', remoteMessage?.notification?.body || '');
     });
-    const subResponse = Notifications.addNotificationResponseReceivedListener((response: Notifications.NotificationResponse) => {
-        if (onResponse) onResponse(response);
+    // App opened from quit/background
+    const unsubscribeOpened = messaging().onNotificationOpenedApp((remoteMessage: any) => {
+        console.log('[FCM] Notification opened from background', remoteMessage?.messageId);
+        if (onResponse) onResponse(remoteMessage);
+    });
+    // App opened from quit state initial notification
+    messaging().getInitialNotification().then((remoteMessage: any) => {
+        if (remoteMessage && onResponse) {
+            console.log('[FCM] App opened from quit by notification', remoteMessage?.messageId);
+            onResponse(remoteMessage);
+        }
     });
     return () => {
-        subReceive.remove();
-        subResponse.remove();
+        unsubscribeOnMessage();
+        unsubscribeOpened();
     };
 }

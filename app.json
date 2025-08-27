@@ -38,7 +38,7 @@
     },
     "android": {
       "package": "com.kavindadimuthu.busmatepassengerapp",
-      "googleServicesFile": "./google-services.json",
+      "googleServicesFile": "app/google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/Busmate-lk-icon.png",
         "backgroundColor": "#004CFF"
