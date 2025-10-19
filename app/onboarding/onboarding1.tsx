@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowRight } from 'lucide-react-native';
+import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
 
 const MapPinIcon = ({ size = 64, color = "#004CFF" }) => (
   <View style={{
@@ -20,6 +21,17 @@ const ArrowRightIcon = ({ size = 24, color = "white" }) => (
 
 export default function Onboarding1Screen() {
   const router = useRouter();
+  const { completeOnboarding } = useOnboardingStatus();
+
+  const handleSkip = async () => {
+    try {
+      await completeOnboarding();
+      router.replace('/auth/login');
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      router.replace('/auth/login');
+    }
+  };
 
   return (
     <>
@@ -29,7 +41,7 @@ export default function Onboarding1Screen() {
           {/* Skip Button */}
           <View style={{ alignItems: 'flex-end', marginBottom: 32 }}>
             <TouchableOpacity
-              onPress={() => router.push('/auth/login')}
+              onPress={handleSkip}
               style={{ paddingHorizontal: 16, paddingVertical: 8 }}
             >
               <Text style={{ color: '#6B7280', fontSize: 16 }}>Skip</Text>
@@ -104,7 +116,7 @@ export default function Onboarding1Screen() {
             </View>
 
             {/* Next Button */}
-            {/* <TouchableOpacity
+            <TouchableOpacity
               onPress={() => router.push('/onboarding/onboarding2')}
               style={{
                 backgroundColor: '#004CFF',
@@ -115,14 +127,8 @@ export default function Onboarding1Screen() {
                 justifyContent: 'center'
               }}
             >
-              <ArrowRightIcon size={24} color="white" />
-            </TouchableOpacity> */}
-            <TouchableOpacity
-            onPress={() => router.push('/onboarding/onboarding2')}
-            className="bg-primary w-14 h-14 rounded-full items-center justify-center"
-          >
-            <ArrowRight size={24} color="white" />
-          </TouchableOpacity>
+              <ArrowRight size={24} color="white" />
+            </TouchableOpacity>
           </View>
         </View>
       </SafeAreaView>

@@ -11,6 +11,11 @@
     "ios": {
       "supportsTablet": true
     },
+    "splash": {
+      "image": "./assets/images/Busmate-lk-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#004CFF"
+    },
     "web": {
       "bundler": "metro",
       "output": "single",
@@ -19,7 +24,15 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
@@ -31,11 +44,6 @@
       }
     },
     "owner": "kavindadimuthu",
-    "splash": {
-      "image": "./assets/images/busmate-splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#004CFF"
-    },
     "android": {
       "package": "com.kavindadimuthu.busmatepassengerapp",
       "adaptiveIcon": {

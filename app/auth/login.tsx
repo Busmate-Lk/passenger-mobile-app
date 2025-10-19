@@ -18,17 +18,20 @@ import { useRouter } from 'expo-router';
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/context/AuthContext';
+// import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
 
 const { height } = Dimensions.get('window');
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('isuru@gmail.com'); // Pre-filled for demo
-  const [password, setPassword] = useState('123'); // Pre-filled for demo
+  const [email, setEmail] = useState('isuru@gmail.com');
+  const [password, setPassword] = useState('123');
   const [showPassword, setShowPassword] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const router = useRouter();
   const { signIn, isLoading } = useAuth();
+  // const { resetOnboarding } = useOnboardingStatus();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -49,6 +52,26 @@ export default function LoginScreen() {
       Alert.alert('Login Failed', result.error || 'Invalid email or password');
     }
   };
+
+  // const resetOnboardingHandler = async () => {
+  //   if (isResetting) return; // Prevent multiple calls
+    
+  //   try {
+  //     setIsResetting(true);
+  //     await resetOnboarding();
+  //     console.log('Onboarding reset completed');
+      
+  //     // Small delay to ensure state is updated
+  //     setTimeout(() => {
+  //       router.replace('/onboarding/language');
+  //       setIsResetting(false);
+  //     }, 200);
+  //   } catch (error) {
+  //     console.error('Error clearing onboarding status:', error);
+  //     Alert.alert('Error', 'Failed to clear onboarding status');
+  //     setIsResetting(false);
+  //   }
+  // };
 
   return (
     <>
@@ -86,8 +109,6 @@ export default function LoginScreen() {
                 justifyContent: 'center',
                 alignItems: 'center',
                 marginBottom: 24,
-                // shadowColor: '#000',
-                // shadowOffset: { width: 0, height: 8 },
                 shadowOpacity: 0.2,
                 shadowRadius: 16,
                 elevation: 8
@@ -309,32 +330,6 @@ export default function LoginScreen() {
                 </LinearGradient>
               </TouchableOpacity>
 
-              {/* Demo Credentials Info */}
-              {/* <View style={{
-                backgroundColor: '#E0F2FE',
-                borderRadius: 12,
-                padding: 16,
-                marginBottom: 24,
-                borderLeftWidth: 4,
-                borderLeftColor: '#0891B2'
-              }}>
-                <Text style={{
-                  fontSize: 14,
-                  fontWeight: '600',
-                  color: '#0F172A',
-                  marginBottom: 4
-                }}>
-                  Demo Account
-                </Text>
-                <Text style={{
-                  fontSize: 13,
-                  color: '#475569',
-                  lineHeight: 18
-                }}>
-                  Use the pre-filled credentials to explore the app, or create your own account below.
-                </Text>
-              </View> */}
-
               {/* Sign Up Link */}
               <View style={{
                 flexDirection: 'row',
@@ -366,6 +361,27 @@ export default function LoginScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Debug Button */}
+              {/* <TouchableOpacity
+                onPress={resetOnboardingHandler}
+                disabled={isResetting}
+                style={{
+                  backgroundColor: isResetting ? '#9CA3AF' : '#FF3831',
+                  paddingVertical: 12,
+                  paddingHorizontal: 24,
+                  borderRadius: 8,
+                  marginBottom: 16,
+                  alignItems: 'center',
+                  flexDirection: 'row',
+                  justifyContent: 'center'
+                }}
+              >
+                {isResetting && <ActivityIndicator color="white" size="small" style={{ marginRight: 8 }} />}
+                <Text style={{ color: 'white', fontWeight: '600' }}>
+                  {isResetting ? 'Resetting...' : 'Reset Onboarding (Debug)'}
+                </Text>
+              </TouchableOpacity> */}
             </View>
           </ScrollView>
         </KeyboardAvoidingView>

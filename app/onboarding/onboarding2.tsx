@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowRight } from 'lucide-react-native';
+import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
 
 const ArrowRightIcon = ({ size = 24, color = "white" }) => (
   <Text style={{ fontSize: size, color }}>→</Text>
@@ -9,6 +10,17 @@ const ArrowRightIcon = ({ size = 24, color = "white" }) => (
 
 export default function Onboarding2Screen() {
   const router = useRouter();
+  const { completeOnboarding } = useOnboardingStatus();
+
+  const handleSkip = async () => {
+    try {
+      await completeOnboarding();
+      router.replace('/auth/login');
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      router.replace('/auth/login');
+    }
+  };
 
   return (
     <>
@@ -18,7 +30,7 @@ export default function Onboarding2Screen() {
           {/* Skip Button */}
           <View style={{ alignItems: 'flex-end', marginBottom: 32 }}>
             <TouchableOpacity
-              onPress={() => router.push('/auth/login')}
+              onPress={handleSkip}
               style={{ paddingHorizontal: 16, paddingVertical: 8 }}
             >
               <Text style={{ color: '#6B7280', fontSize: 16 }}>Skip</Text>
@@ -93,11 +105,18 @@ export default function Onboarding2Screen() {
 
             {/* Next Button */}
             <TouchableOpacity
-            onPress={() => router.push('/onboarding/onboarding3')}
-            className="bg-primary w-14 h-14 rounded-full items-center justify-center"
-          >
-            <ArrowRight size={24} color="white" />
-          </TouchableOpacity>
+              onPress={() => router.push('/onboarding/onboarding3')}
+              style={{
+                backgroundColor: '#004CFF',
+                width: 56,
+                height: 56,
+                borderRadius: 28,
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              <ArrowRight size={24} color="white" />
+            </TouchableOpacity>
           </View>
         </View>
       </SafeAreaView>

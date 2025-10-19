@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { userServiceEndpoints } from '@/config';
 import { MockUserService, MockUser } from '@/services/mockUserService';
+import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
 
 type AuthUser = {
   id: string;
@@ -147,7 +148,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       };
 
       await AsyncStorage.setItem('user_data', JSON.stringify(userData));
-      await AsyncStorage.setItem('hasCompletedOnboarding', 'true');
+      // Don't set onboarding completion here - let the hook handle it
       
       setAccessToken(authData.access_token);
       setUser(userData);

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useOnboardingStatus } from '@/hooks/useOnboardingStatus';
 
 const TicketIcon = ({ size = 64, color = "#FF3831" }) => (
   <View style={{
@@ -16,16 +16,31 @@ const TicketIcon = ({ size = 64, color = "#FF3831" }) => (
 
 export default function Onboarding3Screen() {
   const router = useRouter();
+  const { completeOnboarding } = useOnboardingStatus();
 
   const handleGetStarted = async () => {
     try {
-      // Mark onboarding as completed
-      await AsyncStorage.setItem('hasCompletedOnboarding', 'true');
-      router.push('/auth/login');
+      await completeOnboarding();
+      console.log('Onboarding completed - navigating to login');
+      // Add small delay to ensure state is updated
+      setTimeout(() => {
+        router.replace('/auth/login');
+      }, 100);
     } catch (error) {
-      console.error('Error saving onboarding completion:', error);
-      // Continue anyway
-      router.push('/auth/login');
+      console.error('Error completing onboarding:', error);
+      router.replace('/auth/login');
+    }
+  };
+
+  const handleSkip = async () => {
+    try {
+      await completeOnboarding();
+      setTimeout(() => {
+        router.replace('/auth/login');
+      }, 100);
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      router.replace('/auth/login');
     }
   };
 
@@ -37,7 +52,7 @@ export default function Onboarding3Screen() {
           {/* Skip Button */}
           <View style={{ alignItems: 'flex-end', marginBottom: 32 }}>
             <TouchableOpacity
-              onPress={() => router.push('/auth/login')}
+              onPress={handleSkip}
               style={{ paddingHorizontal: 16, paddingVertical: 8 }}
             >
               <Text style={{ color: '#6B7280', fontSize: 16 }}>Skip</Text>
