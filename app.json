@@ -20,7 +20,8 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "./plugins/withNetworkSecurityConfig"
     ],
     "experiments": {
       "typedRoutes": true
@@ -43,14 +44,7 @@
         "foregroundImage": "./assets/images/busmate_lk_icon.png",
         "backgroundColor": "#004CFF"
       },
-      "softwareKeyboardLayoutMode": "pan",
-      "usesCleartextTraffic": true,
-      "networkSecurityConfig": "./android_network_security_config.xml",
-      "statusBar": {
-        "barStyle": "light-content",
-        "backgroundColor": "#004CFF",
-        "translucent": false
-      }
+      "softwareKeyboardLayoutMode": "pan"
     }
   }
 }

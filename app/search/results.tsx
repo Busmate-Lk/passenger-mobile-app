@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Filter } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
@@ -7,6 +8,7 @@ import BusRouteCard from '../../components/BusRouteCard';
 import RouteFilterModal from '../../components/modals/NewRouteFilterModal';
 import AppHeader from '../../components/ui/AppHeader';
 import { PassengerApIsService, PassengerTripResponse } from '../../lib/api-client/route-management';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 interface FilterOptionsType {
   travelDate: Date;
@@ -26,6 +28,7 @@ export default function SearchResultsScreen() {
   const [trips, setTrips] = useState<PassengerTripResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
   // Parse parameters from search
   const fromStopId = params.fromStopId as string;
@@ -152,7 +155,7 @@ export default function SearchResultsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       {/* Header */}
       <AppHeader 
         title={`${fromStopName} → ${toStopName}`}

@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { CreditCard, Wallet, Plus, RefreshCw, Check } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
 import MockWalletService from '@/services/mockWalletService';
 import AppHeader from '@/components/ui/AppHeader';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function TopupScreen() {
   const router = useRouter();
@@ -13,6 +15,7 @@ export default function TopupScreen() {
   const [amount, setAmount] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
   // Get wallet data and payment methods from service
   const walletData = user?.email ? MockWalletService.getWalletByEmail(user.email) : null;
@@ -147,7 +150,7 @@ export default function TopupScreen() {
   const finalAmount = parseInt(amount || '0') + bonus;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       {/* Header */}
       <AppHeader title="Top Up Wallet" />
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, RefreshControl, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StyleSheet } from 'react-native';
 import { 
@@ -15,11 +16,13 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import MockWalletService from '@/services/mockWalletService';
 import AppHeader from '@/components/ui/AppHeader';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function HistoryScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
   const filters = [
     { id: 'all', label: 'All' },
@@ -102,7 +105,7 @@ export default function HistoryScreen() {
   }, {});
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       {/* Header */}
       <AppHeader title="Transaction History" />
 

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StyleSheet } from 'react-native';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 import { 
   Plus, 
   EyeOff, 
@@ -55,6 +57,7 @@ export default function WalletScreen() {
   const router = useRouter();
   const [hideBalance, setHideBalance] = useState(false);
   const { user } = useAuth();
+  const safeAreaStyle = useSafeAreaContainerStyles();
   
   // Get wallet data using the service
   const walletData = user?.email ? MockWalletService.getWalletByEmail(user.email) : null;
@@ -100,7 +103,7 @@ export default function WalletScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       {/* Header */}
       <AppHeader 
         title="Wallet & Travel Card"
