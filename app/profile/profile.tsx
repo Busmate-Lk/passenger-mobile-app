@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { 
   User,
@@ -11,18 +11,58 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import AppHeader from '@/components/ui/AppHeader';
+import { PassengerControllerService, PassengerDTO } from '@/lib/api-client/user-management';
 
 export default function ProfileInfoScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const [profileData, setProfileData] = useState<PassengerDTO | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Fallback if user is not loaded
-  if (!user) {
+  // Fetch profile data from API
+  const fetchProfileData = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setIsLoading(true);
+      const response = await PassengerControllerService.getPassengerById(user.id);
+      setProfileData(response);
+    } catch (error: any) {
+      console.error('Error fetching profile data:', error);
+      Alert.alert(
+        'Error',
+        'Failed to load profile information. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfileData();
+  }, [user?.id]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <AppHeader title="Profile Information" />
+        <View style={[styles.content, styles.centered]}>
+          <ActivityIndicator size="large" color="#004CFF" />
+          <Text style={styles.loadingText}>Loading profile information...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Fallback if user is not loaded or profile data is not available
+  if (!user || !profileData) {
     return (
       <SafeAreaView style={styles.container}>
         <AppHeader title="Profile Information" />
         <View style={styles.content}>
-          <Text>Loading profile information...</Text>
+          <Text>Failed to load profile information.</Text>
         </View>
       </SafeAreaView>
     );
@@ -74,8 +114,11 @@ export default function ProfileInfoScreen() {
             source={getProfileImage(user?.profileImage)}
             style={styles.profileImage} 
           />
-          <Text style={styles.nameText}>{user.name}</Text>
-          <Text style={styles.memberSinceText}>Member since {formatMemberSince(user.memberSince)}</Text>
+          <Text style={styles.nameText}>{profileData.fullName || profileData.username || 'Unknown'}</Text>
+          <Text style={styles.memberSinceText}>
+            {profileData.accountStatus === 'ACTIVE' ? 'Active Member' : 'Member'} 
+            {profileData.isVerified && ' • Verified'}
+          </Text>
         </View>
 
         <View style={styles.infoCardContainer}>
@@ -89,7 +132,17 @@ export default function ProfileInfoScreen() {
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Full Name</Text>
-                <Text style={styles.infoValue}>{user.name}</Text>
+                <Text style={styles.infoValue}>{profileData.fullName || 'Not provided'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoItem}>
+              <View style={styles.infoIconContainer}>
+                <User size={20} color="#004CFF" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Username</Text>
+                <Text style={styles.infoValue}>{profileData.username || 'Not provided'}</Text>
               </View>
             </View>
 
@@ -99,55 +152,76 @@ export default function ProfileInfoScreen() {
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Email Address</Text>
-                <Text style={styles.infoValue}>{user.email}</Text>
+                <Text style={styles.infoValue}>{profileData.email || 'Not provided'}</Text>
               </View>
             </View>
 
             <View style={styles.infoItem}>
               <View style={styles.infoIconContainer}>
-                <Phone size={20} color="#004CFF" />
+                <User size={20} color="#004CFF" />
               </View>
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Phone Number</Text>
-                <Text style={styles.infoValue}>{user.phone}</Text>
+                <Text style={styles.infoLabel}>Role</Text>
+                <Text style={styles.infoValue}>{profileData.role || 'Passenger'}</Text>
               </View>
             </View>
 
             <View style={styles.infoItem}>
               <View style={styles.infoIconContainer}>
-                <Calendar size={20} color="#004CFF" />
+                <Mail size={20} color="#004CFF" />
               </View>
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Date of Birth</Text>
-                <Text style={styles.infoValue}>{user.dob || 'Not provided'}</Text>
+                <Text style={styles.infoLabel}>Account Status</Text>
+                <Text style={[styles.infoValue, {color: profileData.accountStatus === 'ACTIVE' ? '#10B981' : '#EF4444'}]}>
+                  {profileData.accountStatus || 'Unknown'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.infoItem}>
+              <View style={styles.infoIconContainer}>
+                <Mail size={20} color="#004CFF" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Email Verified</Text>
+                <Text style={[styles.infoValue, {color: profileData.isVerified ? '#10B981' : '#EF4444'}]}>
+                  {profileData.isVerified ? 'Verified' : 'Not Verified'}
+                </Text>
               </View>
             </View>
           </View>
 
-          {/* Address Card */}
+          {/* Notification Preferences Card */}
           <View style={styles.infoCard}>
-            <Text style={styles.sectionTitle}>Contact Information</Text>
+            <Text style={styles.sectionTitle}>Preferences</Text>
 
             <View style={styles.infoItem}>
               <View style={styles.infoIconContainer}>
-                <MapPin size={20} color="#004CFF" />
+                <Mail size={20} color="#004CFF" />
               </View>
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Address</Text>
-                <Text style={styles.infoValue}>{user.address || 'Not provided'}</Text>
-              </View>
-            </View>
-
-            <View style={styles.infoItem}>
-              <View style={styles.infoIconContainer}>
-                <MapPin size={20} color="#004CFF" />
-              </View>
-              <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>City</Text>
-                <Text style={styles.infoValue}>{user.city || 'Not provided'}</Text>
+                <Text style={styles.infoLabel}>Notification Preferences</Text>
+                <Text style={styles.infoValue}>
+                  {profileData.notification_preferences || 'Default settings'}
+                </Text>
               </View>
             </View>
           </View>
+
+          {/* System Information Card */}
+          {/* <View style={styles.infoCard}>
+            <Text style={styles.sectionTitle}>System Information</Text>
+
+            <View style={styles.infoItem}>
+              <View style={styles.infoIconContainer}>
+                <User size={20} color="#004CFF" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>User ID</Text>
+                <Text style={styles.infoValue}>{profileData.userId || 'Not available'}</Text>
+              </View>
+            </View>
+          </View> */}
         </View>
       </ScrollView>
 
@@ -267,5 +341,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 12,
   },
 });

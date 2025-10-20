@@ -78,6 +78,7 @@ type AuthContextType = {
   signIn: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   refreshToken: () => Promise<boolean>;
+  updateUserProfile: (profileData: Partial<User>) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -253,6 +254,23 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   };
 
+  const updateUserProfile = async (profileData: Partial<User>): Promise<void> => {
+    try {
+      if (!user) return;
+      
+      // Update the user state with new profile data
+      const updatedUser = { ...user, ...profileData };
+      setUser(updatedUser);
+      
+      // Update AsyncStorage with the new user data
+      await AsyncStorage.setItem('user_data', JSON.stringify(updatedUser));
+      
+    } catch (error) {
+      console.error('Error updating user profile in context:', error);
+      throw error;
+    }
+  };
+
   const isAuthenticated = !!user && !!accessToken;
 
   return (
@@ -263,7 +281,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       accessToken,
       signIn, 
       signOut,
-      refreshToken
+      refreshToken,
+      updateUserProfile
     }}>
       {children}
     </AuthContext.Provider>

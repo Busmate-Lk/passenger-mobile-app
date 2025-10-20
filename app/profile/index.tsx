@@ -119,11 +119,19 @@ export default function ProfileScreen() {
   };
 
   // Format member since date
-  const formatMemberSince = (memberSince: string) => {
+  const formatMemberSince = (memberSince?: string) => {
     if (!memberSince) return 'New User';
-    // If it's already formatted (like "June 2024"), return as is
+    // Try to parse as ISO timestamp or other date string
+    const date = new Date(memberSince);
+    if (!isNaN(date.getTime())) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    // If it's already a friendly string like "June 2024", return as is
     if (memberSince.includes(' ')) return memberSince;
-    // Otherwise format it appropriately
+    // Fallback to original string
     return memberSince;
   };
 
