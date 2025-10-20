@@ -103,14 +103,14 @@ export default function HomeScreen() {
       backgroundColor: '#EBFFF4',
       route: '/location'
     },
-    {
-      id: 'schedule',
-      title: 'Schedules',
-      icon: Calendar,
-      color: '#8B5CF6',
-      backgroundColor: '#F3F1FF',
-      route: '/schedules'
-    }
+    // {
+    //   id: 'schedule',
+    //   title: 'Schedules',
+    //   icon: Calendar,
+    //   color: '#8B5CF6',
+    //   backgroundColor: '#F3F1FF',
+    //   route: '/schedules'
+    // }
   ];
 
   // Utility functions
@@ -263,7 +263,7 @@ export default function HomeScreen() {
         <View style={styles.headerLeft}>
           <View style={styles.profileImageContainer}>
             <Image 
-              source={{ uri: user?.profileImage || 'https://via.placeholder.com/40' }} 
+              source={{ uri: user?.profileImage || 'https://iamkavinda.vercel.app/assets/profile-photo-CCXUFtA8.jpeg' }} 
               style={styles.profileImage}
             />
             <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
