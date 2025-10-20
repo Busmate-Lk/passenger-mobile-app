@@ -2,30 +2,15 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { Snowflake, Wifi, Zap, ArrowRight } from 'lucide-react-native';
 
-export interface RouteResult {
-  id: string;
-  routeNumber: string;
-  operatorName: string;
-  departureTime: string;
-  busType: string;
-  arrivalTime: string;
-  duration: string;
-  price: number;
-  availableSeats: number;
-  rating: number;
-  amenities: string[];
-  busImage: string;
-  from?: string;
-  to?: string;
-}
+import { PassengerTripResponse } from '../lib/api-client/route-management';
 
 interface BusRouteCardProps {
-  route: RouteResult;
+  trip: PassengerTripResponse;
   onPress: () => void;
   showAmenities?: boolean;
 }
 
-export default function BusRouteCard({ route, onPress, showAmenities = true }: BusRouteCardProps) {
+export default function BusRouteCard({ trip, onPress, showAmenities = true }: BusRouteCardProps) {
   const getAmenityIcon = (amenity: string) => {
     switch (amenity) {
       case 'ac': return <Snowflake size={16} color="#004CFF" />;
@@ -60,69 +45,96 @@ export default function BusRouteCard({ route, onPress, showAmenities = true }: B
       onPress={onPress}
       style={styles.resultCard}
     >
-      <View style={styles.cardHeader}>
-        <Image source={{ uri: route.busImage }} style={styles.busImage} />
+            <View style={styles.cardHeader}>
+        <Image 
+          source={{ uri: 'https://lesscarmorelife.com/wp-content/uploads/2023/03/img_3289.jpg?w=2046' }} 
+          style={styles.busImage} 
+        />
         <View style={styles.cardHeaderInfo}>
           <View style={styles.routeDetailsRow}>
             <Text style={styles.routeDetails}>
-              R-{route.routeNumber} | {route.from || 'Colombo Fort'}
+              {trip.routeName || 'Route'} | {trip.departureStop?.name}
             </Text>
             <ArrowRight size={16} color="#6B7280" style={styles.arrowIcon} />
             <Text style={styles.routeDetails}>
-              {route.to || 'Kandy'}
+              {trip.arrivalStop?.name}
             </Text>
           </View>
-          <Text style={styles.operatorName}>{route.operatorName}</Text>
+          <Text style={styles.operatorName}>{trip.operator?.name || 'Unknown Operator'}</Text>
         </View>
       </View>
 
-      <View style={styles.timeContainer}>
+            <View style={styles.timeContainer}>
         <View style={styles.timePoint}>
-          <Text style={styles.time}>{route.departureTime}</Text>
-          <Text style={styles.location}>{route.from || 'Colombo Fort'}</Text>
+          <Text style={styles.time}>
+            {trip.scheduledDeparture ? new Date(trip.scheduledDeparture).toLocaleTimeString('en-US', { 
+              hour: '2-digit', 
+              minute: '2-digit',
+              hour12: false
+            }) : '--:--'}
+          </Text>
+          <Text style={styles.location}>{trip.departureStop?.name || 'Origin'}</Text>
         </View>
         
         <View style={styles.journeyLine}>
           <View style={styles.dot} />
           <View style={styles.line} />
-          <Text style={styles.duration}>{route.duration}</Text>
+          <Text style={styles.duration}>
+            {trip.duration ? `${Math.floor(trip.duration / 60)}h ${trip.duration % 60}m` : '--h --m'}
+          </Text>
           <View style={styles.line} />
           <View style={styles.dot} />
         </View>
         
         <View style={styles.timePoint}>
-          <Text style={styles.time}>{route.arrivalTime}</Text>
-          <Text style={styles.location}>{route.to || 'Kandy'}</Text>
+          <Text style={styles.time}>
+            {trip.scheduledArrival ? new Date(trip.scheduledArrival).toLocaleTimeString('en-US', { 
+              hour: '2-digit', 
+              minute: '2-digit',
+              hour12: false
+            }) : '--:--'}
+          </Text>
+          <Text style={styles.location}>{trip.arrivalStop?.name || 'Destination'}</Text>
         </View>
       </View>
 
       <View style={styles.cardFooter}>
-        <View style={styles.leftSection}>
+                <View style={styles.leftSection}>
           <View style={[
             styles.busTypeTag,
-            { backgroundColor: getBusTypeColor(route.busType) }
+            { backgroundColor: getBusTypeColor(trip.bus?.type || 'luxury') }
           ]}>
             <Text style={[
               styles.busTypeText,
-              { color: getBusTypeTextColor(route.busType) }
+              { color: getBusTypeTextColor(trip.bus?.type || 'luxury') }
             ]}>
-              {route.busType || 'Luxury'}
+              {trip.bus?.type || 'Bus'}
             </Text>
           </View>
-          {showAmenities && (
+          {showAmenities && trip.bus?.features && (
             <View style={styles.amenitiesContainer}>
-              {route.amenities.map((amenity, index) => (
-                <View key={index} style={styles.amenityIcon}>
-                  {getAmenityIcon(amenity)}
+              {trip.bus.features.hasAirConditioning && (
+                <View style={styles.amenityIcon}>
+                  {getAmenityIcon('ac')}
                 </View>
-              ))}
+              )}
+              {trip.bus.features.hasWiFi && (
+                <View style={styles.amenityIcon}>
+                  {getAmenityIcon('wifi')}
+                </View>
+              )}
+              {trip.bus.features.hasToilet && (
+                <View style={styles.amenityIcon}>
+                  {getAmenityIcon('charging')}
+                </View>
+              )}
             </View>
           )}
         </View>
         
         <View style={styles.priceContainer}>
-          <Text style={styles.availableSeats}>{route.availableSeats} seats left</Text>
-          <Text style={styles.price}>LKR {route.price}</Text>
+          <Text style={styles.availableSeats}>{trip.availableSeats || 0} seats left</Text>
+          <Text style={styles.price}>LKR {trip.fare || 0}</Text>
         </View>
       </View>
     </TouchableOpacity>

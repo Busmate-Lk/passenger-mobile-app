@@ -22,8 +22,8 @@ import { useAuth } from '@/context/AuthContext';
 const { height } = Dimensions.get('window');
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState(''); // Remove pre-filled demo values
-  const [password, setPassword] = useState(''); // Remove pre-filled demo values
+  const [email, setEmail] = useState('kavinda@gmail.com'); // Remove pre-filled demo values
+  const [password, setPassword] = useState('123456'); // Remove pre-filled demo values
   const [showPassword, setShowPassword] = useState(false);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);

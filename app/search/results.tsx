@@ -1,22 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Filter } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
-import BusRouteCard, { RouteResult } from '../../components/BusRouteCard';
-import RouteFilterModal from '../../components/modals/RouteFilterModal';
-import mockData from '../../data/mockBusRouteData.json';
+import BusRouteCard from '../../components/BusRouteCard';
+import RouteFilterModal from '../../components/modals/NewRouteFilterModal';
 import AppHeader from '../../components/ui/AppHeader';
+import { PassengerApIsService, PassengerTripResponse } from '../../lib/api-client/route-management';
 
 interface FilterOptionsType {
-  priceRange: [number, number];
-  departureTime: string[];
-  busType: string[];
-  amenities: string[];
-  operators: string[];
-  date?: Date;
-  endDate?: Date;
-  isDateRange: boolean;
+  travelDate: Date;
+  departureTimeFrom?: string;
+  departureTimeTo?: string;
+  operatorType?: 'PRIVATE' | 'CTB';
+  operatorId?: string;
+  status?: 'pending' | 'active' | 'completed' | 'cancelled' | 'delayed' | 'in_transit' | 'boarding' | 'departed';
   passengers: number;
 }
 
@@ -25,17 +23,21 @@ export default function SearchResultsScreen() {
   const params = useLocalSearchParams();
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [filteredRoutes, setFilteredRoutes] = useState<RouteResult[]>([]);
+  const [trips, setTrips] = useState<PassengerTripResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Parse parameters from search - Fix the date parsing
-  const from = params.from as string || 'Colombo Fort';
-  const to = params.to as string || 'Kandy';
+  // Parse parameters from search
+  const fromStopId = params.fromStopId as string;
+  const toStopId = params.toStopId as string;
+  const fromStopName = params.fromStopName as string || 'Origin';
+  const toStopName = params.toStopName as string || 'Destination';
   const passengers = parseInt(params.passengers as string) || 1;
   
-  // Better date handling
-  const searchDate = (() => {
-    if (params.date && typeof params.date === 'string' && params.date.trim() !== '') {
-      const parsedDate = new Date(params.date);
+  // Parse travel date
+  const travelDate = (() => {
+    if (params.travelDate && typeof params.travelDate === 'string' && params.travelDate.trim() !== '') {
+      const parsedDate = new Date(params.travelDate);
       return isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
     }
     return new Date();
@@ -46,34 +48,26 @@ export default function SearchResultsScreen() {
     if (params.filters) {
       try {
         const parsed = JSON.parse(params.filters as string);
-        
-        // Ensure date fields are properly converted back to Date objects
-        if (parsed.date && typeof parsed.date === 'string') {
-          const parsedDate = new Date(parsed.date);
-          parsed.date = isNaN(parsedDate.getTime()) ? searchDate : parsedDate;
-        } else {
-          parsed.date = searchDate;
-        }
-        
-        if (parsed.endDate && typeof parsed.endDate === 'string') {
-          const parsedEndDate = new Date(parsed.endDate);
-          parsed.endDate = isNaN(parsedEndDate.getTime()) ? undefined : parsedEndDate;
-        }
-        
-        return parsed;
+        return {
+          travelDate: parsed.travelDate ? new Date(parsed.travelDate) : travelDate,
+          departureTimeFrom: params.departureTimeFrom as string || parsed.departureTimeFrom,
+          departureTimeTo: params.departureTimeTo as string || parsed.departureTimeTo,
+          operatorType: params.operatorType as ('PRIVATE' | 'CTB') || parsed.operatorType,
+          operatorId: params.operatorId as string || parsed.operatorId,
+          status: parsed.status,
+          passengers: passengers
+        };
       } catch (e) {
-        console.log('Error parsing filters:', e);
+        console.error('Error parsing filter options:', e);
       }
     }
     return {
-      priceRange: [100, 500],
-      departureTime: [],
-      busType: [],
-      amenities: [],
-      operators: [],
-      date: searchDate,
-      endDate: undefined,
-      isDateRange: false,
+      travelDate: travelDate,
+      departureTimeFrom: params.departureTimeFrom as string,
+      departureTimeTo: params.departureTimeTo as string,
+      operatorType: params.operatorType as ('PRIVATE' | 'CTB'),
+      operatorId: params.operatorId as string,
+      status: undefined,
       passengers: passengers
     };
   });
@@ -85,99 +79,73 @@ export default function SearchResultsScreen() {
     { id: 'highest-rated', label: 'Highest Rated' }
   ];
 
-  // Filter and sort routes based on search criteria and filters
+    // Fetch trips from API based on search criteria and filters
   useEffect(() => {
-    let routes = mockData.routes.filter(route => {
-      // Basic route matching (case insensitive)
-      const matchesRoute = route.from.toLowerCase().includes(from.toLowerCase()) &&
-                          route.to.toLowerCase().includes(to.toLowerCase());
+    const fetchTrips = async () => {
+      if (!fromStopId || !toStopId) {
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
       
-      if (!matchesRoute) return false;
-
-      // Apply filters
-      // Price range filter
-      if (route.price < filterOptions.priceRange[0] || route.price > filterOptions.priceRange[1]) {
-        return false;
-      }
-
-      // Bus type filter
-      if (filterOptions.busType.length > 0 && !filterOptions.busType.includes('all')) {
-        if (!filterOptions.busType.includes(route.busType)) {
-          return false;
-        }
-      }
-
-      // Operators filter
-      if (filterOptions.operators.length > 0) {
-        if (!filterOptions.operators.includes(route.operatorId)) {
-          return false;
-        }
-      }
-
-      // Amenities filter
-      if (filterOptions.amenities.length > 0) {
-        const hasAllAmenities = filterOptions.amenities.every(amenity => 
-          route.amenities.includes(amenity)
+      try {
+        const response = await PassengerApIsService.searchTrips(
+          fromStopId,
+          toStopId,
+          undefined, // routeId
+          filterOptions.travelDate.toISOString().split('T')[0], // travelDate in YYYY-MM-DD format
+          filterOptions.departureTimeFrom, // departureTimeFrom
+          filterOptions.departureTimeTo, // departureTimeTo
+          filterOptions.operatorType, // operatorType
+          filterOptions.operatorId, // operatorId
+          filterOptions.status, // status
+          0, // page
+          50 // size
         );
-        if (!hasAllAmenities) {
-          return false;
+
+        let fetchedTrips = response.content || [];
+
+        // Apply sorting based on selected filter
+        switch (selectedFilter) {
+          case 'cheapest':
+            fetchedTrips.sort((a, b) => (a.fare || 0) - (b.fare || 0));
+            break;
+          case 'fastest':
+            fetchedTrips.sort((a, b) => (a.duration || 0) - (b.duration || 0));
+            break;
+          case 'highest-rated':
+            // Rating might not be available in trip response, skip for now
+            break;
+          default:
+            // Keep original order
+            break;
         }
+
+        setTrips(fetchedTrips);
+      } catch (err) {
+        console.error('Error fetching trips:', err);
+        setError('Failed to fetch trip information. Please try again.');
+        setTrips([]);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      // Departure time filter
-      if (filterOptions.departureTime.length > 0 && !filterOptions.departureTime.includes('any')) {
-        const hour = parseInt(route.departureTime.split(':')[0]);
-        const matchesTimeSlot = filterOptions.departureTime.some(timeSlot => {
-          switch (timeSlot) {
-            case 'morning': return hour >= 6 && hour < 12;
-            case 'afternoon': return hour >= 12 && hour < 17;
-            case 'evening': return hour >= 17 && hour < 21;
-            case 'night': return hour >= 21 || hour < 6;
-            default: return true;
-          }
-        });
-        if (!matchesTimeSlot) {
-          return false;
-        }
-      }
-
-      return true;
-    });
-
-    // Apply sorting based on selected filter
-    switch (selectedFilter) {
-      case 'cheapest':
-        routes.sort((a, b) => a.price - b.price);
-        break;
-      case 'fastest':
-        routes.sort((a, b) => {
-          const durationA = parseInt(a.duration.split('h')[0]) * 60 + parseInt(a.duration.split('h')[1].split('m')[0]);
-          const durationB = parseInt(b.duration.split('h')[0]) * 60 + parseInt(b.duration.split('h')[1].split('m')[0]);
-          return durationA - durationB;
-        });
-        break;
-      case 'highest-rated':
-        routes.sort((a, b) => b.rating - a.rating);
-        break;
-      default:
-        // Keep original order
-        break;
-    }
-
-    setFilteredRoutes(routes);
-  }, [from, to, filterOptions, selectedFilter]);
+    fetchTrips();
+  }, [fromStopId, toStopId, filterOptions, selectedFilter]);
 
   const applyFilters = (newFilters: FilterOptionsType) => {
     setFilterOptions(newFilters);
   };
 
-  const handleRoutePress = (route: RouteResult) => {
+  const handleTripPress = (trip: PassengerTripResponse) => {
     router.push({
       pathname: '/search/schedule',
       params: {
-        routeId: route.id,
-        from,
-        to,
+        tripId: trip.tripId || '',
+        fromStopName,
+        toStopName,
         passengers: passengers.toString()
       }
     });
@@ -187,7 +155,7 @@ export default function SearchResultsScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <AppHeader 
-        title={`${from} → ${to}`}
+        title={`${fromStopName} → ${toStopName}`}
         rightElement={
           <TouchableOpacity
             style={styles.filterButton}
@@ -234,26 +202,40 @@ export default function SearchResultsScreen() {
 
       {/* Results */}
       <ScrollView style={styles.resultsContainer}>
-        <Text style={styles.resultsCount}>
-          {filteredRoutes.length} bus{filteredRoutes.length !== 1 ? 'es' : ''} found
-        </Text>
-        
-        {filteredRoutes.length === 0 ? (
-          <View style={styles.noResultsContainer}>
-            <Text style={styles.noResultsTitle}>No buses found</Text>
-            <Text style={styles.noResultsText}>
-              Try adjusting your filters or search criteria
-            </Text>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#004CFF" />
+            <Text style={styles.loadingText}>Searching for trips...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorTitle}>Error</Text>
+            <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : (
-          filteredRoutes.map((result) => (
-            <BusRouteCard 
-              key={result.id}
-              route={result} 
-              onPress={() => handleRoutePress(result)}
-              showAmenities={false}
-            />
-          ))
+          <>
+            <Text style={styles.resultsCount}>
+              {trips.length} trip{trips.length !== 1 ? 's' : ''} found
+            </Text>
+
+            {trips.length === 0 ? (
+              <View style={styles.noResultsContainer}>
+                <Text style={styles.noResultsTitle}>No trips found</Text>
+                <Text style={styles.noResultsText}>
+                  Try adjusting your filters or search criteria
+                </Text>
+              </View>
+            ) : (
+              trips.map((trip) => (
+                <BusRouteCard 
+                  key={trip.tripId}
+                  trip={trip} 
+                  onPress={() => handleTripPress(trip)}
+                  showAmenities={false}
+                />
+              ))
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -342,6 +324,32 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   noResultsText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 16,
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#EF4444',
+    marginBottom: 8,
+  },
+  errorText: {
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
