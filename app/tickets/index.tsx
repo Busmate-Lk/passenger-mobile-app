@@ -1,64 +1,140 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Calendar, Clock, MapPin, QrCode, MoveVertical as MoreVertical, Filter } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
-import { MockUserService } from '@/services/mockUserService';
 import AppHeader from '@/components/ui/AppHeader';
+import { TicketControllerService } from '@/lib/api-client/ticketing-management/services/TicketControllerService';
+import { PassengerApIsService } from '@/lib/api-client/route-management/services/PassengerApIsService';
+import type { ConductorLogTicketDTO } from '@/lib/api-client/ticketing-management/models/ConductorLogTicketDTO';
+import type { PassengerStopResponse } from '@/lib/api-client/route-management/models/PassengerStopResponse';
 
-interface Ticket {
-  id: string;
-  bookingId: string;
-  route: {
-    from: string;
-    to: string;
-  };
-  date: string;
-  time: string;
-  duration: string;
-  operator: string;
-  routeNumber: string;
-  seatNumber: string;
-  price: number;
-  status: 'upcoming' | 'completed' | 'cancelled';
-  busImage: string;
+// Updated interface to match API response exactly
+interface Ticket extends ConductorLogTicketDTO {}
+
+// Enhanced ticket interface with stop details
+interface EnhancedTicket extends ConductorLogTicketDTO {
+  startStopName?: string;
+  endStopName?: string;
 }
 
 export default function TicketsScreen() {
   const router = useRouter();
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [tickets, setTickets] = useState<EnhancedTicket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
-  // Get user's tickets from mock data
-  const userTickets = user?.email ? MockUserService.getRecentTickets(user.email) : [];
+  // Function to fetch stop details
+  const fetchStopName = async (locationId: string): Promise<string> => {
+    try {
+      const stopDetails = await PassengerApIsService.getStopDetails(locationId);
+      return stopDetails.name || locationId;
+    } catch (err) {
+      console.warn(`Failed to fetch stop details for ${locationId}:`, err);
+      return locationId;
+    }
+  };
+
+  // Fetch user's tickets from API
+  useEffect(() => {
+    const fetchTickets = async () => {
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await TicketControllerService.getTicketsByPassengerId(user.id);
+        const rawTickets = response || [];
+
+        // Enhance tickets with stop names
+        const enhancedTickets = await Promise.all(
+          rawTickets.map(async (ticket): Promise<EnhancedTicket> => {
+            const enhanced: EnhancedTicket = { ...ticket };
+
+            // Fetch start stop name
+            if (ticket.startLocationId) {
+              enhanced.startStopName = await fetchStopName(ticket.startLocationId);
+            }
+
+            // Fetch end stop name
+            if (ticket.endLocationId) {
+              enhanced.endStopName = await fetchStopName(ticket.endLocationId);
+            }
+
+            return enhanced;
+          })
+        );
+
+        setTickets(enhancedTickets);
+      } catch (err) {
+        console.error('Error fetching tickets:', err);
+        setError('Failed to load tickets. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTickets();
+  }, [user?.id]);
 
   const filters = [
     { id: 'all', label: 'All Tickets' },
-    { id: 'upcoming', label: 'Upcoming' },
-    { id: 'completed', label: 'Completed' },
-    { id: 'cancelled', label: 'Cancelled' }
+    { id: 'COMPLETED', label: 'Completed' },
+    { id: 'PENDING', label: 'Pending' },
+    { id: 'CANCELLED', label: 'Cancelled' }
   ];
 
   const filteredTickets = selectedFilter === 'all' 
-    ? userTickets 
-    : userTickets.filter(ticket => ticket.status === selectedFilter);
+    ? tickets 
+    : tickets.filter((ticket: EnhancedTicket) => ticket.paymentStatus === selectedFilter);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'upcoming': return '#004CFF';
-      case 'completed': return '#1DD724';
-      case 'cancelled': return '#FF3831';
+      case 'COMPLETED': return '#1DD724';
+      case 'PENDING': return '#004CFF';
+      case 'CANCELLED': return '#FF3831';
       default: return '#6B7280';
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'upcoming': return 'Upcoming';
-      case 'completed': return 'Completed';
-      case 'cancelled': return 'Cancelled';
+      case 'COMPLETED': return 'Completed';
+      case 'PENDING': return 'Pending';
+      case 'CANCELLED': return 'Cancelled';
       default: return status;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return 'Invalid Date';
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return 'Invalid Time';
     }
   };
 
@@ -103,7 +179,59 @@ export default function TicketsScreen() {
 
       {/* Tickets List */}
       <ScrollView style={styles.ticketsContainer}>
-        {filteredTickets.length === 0 ? (
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#004CFF" />
+            <Text style={styles.loadingText}>Loading tickets...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorTitle}>Error Loading Tickets</Text>
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                const fetchTickets = async () => {
+                  if (!user?.id) return;
+                  try {
+                    setLoading(true);
+                    setError(null);
+                    const response = await TicketControllerService.getTicketsByPassengerId(user.id);
+                    const rawTickets = response || [];
+
+                    // Enhance tickets with stop names
+                    const enhancedTickets = await Promise.all(
+                      rawTickets.map(async (ticket): Promise<EnhancedTicket> => {
+                        const enhanced: EnhancedTicket = { ...ticket };
+
+                        // Fetch start stop name
+                        if (ticket.startLocationId) {
+                          enhanced.startStopName = await fetchStopName(ticket.startLocationId);
+                        }
+
+                        // Fetch end stop name
+                        if (ticket.endLocationId) {
+                          enhanced.endStopName = await fetchStopName(ticket.endLocationId);
+                        }
+
+                        return enhanced;
+                      })
+                    );
+
+                    setTickets(enhancedTickets);
+                  } catch (err) {
+                    setError('Failed to load tickets. Please try again.');
+                  } finally {
+                    setLoading(false);
+                  }
+                };
+                fetchTickets();
+              }}
+              style={styles.retryButton}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        ) : filteredTickets.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateTitle}>No tickets found</Text>
             <Text style={styles.emptyStateSubtitle}>
@@ -122,22 +250,24 @@ export default function TicketsScreen() {
         ) : (
           filteredTickets.map((ticket) => (
             <TouchableOpacity
-              key={ticket.id}
-              onPress={() => router.push(`/tickets/${ticket.id}/detail`)}
+              key={ticket.ticketId || Math.random()}
+              onPress={() => router.push(`/tickets/${ticket.ticketId}/detail`)}
               style={styles.ticketCard}
             >
               <View style={styles.ticketHeader}>
                 <View style={styles.ticketHeaderLeft}>
-                  <Image source={{ uri: ticket.busImage }} style={styles.busImage} />
+                  <View style={styles.ticketIcon}>
+                    <MapPin size={24} color="#004CFF" />
+                  </View>
                   <View style={styles.ticketInfo}>
-                    <Text style={styles.operatorName}>{ticket.operator}</Text>
-                    <Text style={styles.routeNumber}>Route {ticket.routeNumber}</Text>
+                    <Text style={styles.operatorName}>Ticket #{ticket.ticketId}</Text>
+                    <Text style={styles.routeNumber}>Seat {ticket.seatNumber || 'N/A'}</Text>
                   </View>
                 </View>
                 <View style={styles.ticketHeaderRight}>
-                  <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(ticket.status)}15` }]}>
-                    <Text style={[styles.statusText, { color: getStatusColor(ticket.status) }]}>
-                      {getStatusText(ticket.status)}
+                  <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(ticket.paymentStatus || 'PENDING')}15` }]}>
+                    <Text style={[styles.statusText, { color: getStatusColor(ticket.paymentStatus || 'PENDING') }]}>
+                      {getStatusText(ticket.paymentStatus || 'PENDING')}
                     </Text>
                   </View>
                   <TouchableOpacity style={styles.moreButton}>
@@ -149,41 +279,45 @@ export default function TicketsScreen() {
               <View style={styles.routeContainer}>
                 <View style={styles.routePoint}>
                   <View style={[styles.routeDot, { backgroundColor: '#004CFF' }]} />
-                  <Text style={styles.routeLocation}>{ticket.route.from}</Text>
+                  <Text style={styles.routeLocation}>
+                    {ticket.startStopName || ticket.startLocationId || 'Unknown'}
+                  </Text>
                 </View>
                 <View style={styles.routeLine}>
                   <View style={styles.line} />
-                  <Text style={styles.duration}>{ticket.duration}</Text>
+                  <Text style={styles.duration}>{ticket.passengerCount || 1} passenger{(ticket.passengerCount || 1) > 1 ? 's' : ''}</Text>
                   <View style={styles.line} />
                 </View>
                 <View style={styles.routePoint}>
                   <View style={[styles.routeDot, { backgroundColor: '#FF3831' }]} />
-                  <Text style={styles.routeLocation}>{ticket.route.to}</Text>
+                  <Text style={styles.routeLocation}>
+                    {ticket.endStopName || ticket.endLocationId || 'Unknown'}
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.ticketDetails}>
                 <View style={styles.detailItem}>
                   <Calendar size={16} color="#6B7280" />
-                  <Text style={styles.detailText}>{ticket.date}</Text>
+                  <Text style={styles.detailText}>{formatDate(ticket.issuedAt || '')}</Text>
                 </View>
                 <View style={styles.detailItem}>
                   <Clock size={16} color="#6B7280" />
-                  <Text style={styles.detailText}>{ticket.time}</Text>
+                  <Text style={styles.detailText}>{formatTime(ticket.issuedAt || '')}</Text>
                 </View>
                 <View style={styles.detailItem}>
                   <MapPin size={16} color="#6B7280" />
-                  <Text style={styles.detailText}>Seat {ticket.seatNumber}</Text>
+                  <Text style={styles.detailText}>Seat {ticket.seatNumber || 'N/A'}</Text>
                 </View>
               </View>
 
               <View style={styles.ticketFooter}>
-                <Text style={styles.bookingId}>#{ticket.bookingId}</Text>
+                <Text style={styles.bookingId}>#{ticket.ticketId}</Text>
                 <View style={styles.ticketFooterRight}>
-                  <Text style={styles.price}>LKR {ticket.price}</Text>
-                  {ticket.status === 'upcoming' && (
+                  <Text style={styles.price}>LKR {ticket.fareAmount || 0}</Text>
+                  {ticket.paymentStatus === 'COMPLETED' && (
                     <TouchableOpacity
-                      onPress={() => router.push(`/tickets/${ticket.id}/qr`)}
+                      onPress={() => router.push(`/tickets/${ticket.ticketId}/qr`)}
                       style={styles.qrButton}
                     >
                       <QrCode size={16} color="#004CFF" />
@@ -242,6 +376,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 16,
   },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 16,
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#DC2626',
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  retryButton: {
+    backgroundColor: '#004CFF',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -296,6 +468,15 @@ const styles = StyleSheet.create({
     width: 50,
     height: 35,
     borderRadius: 8,
+    marginRight: 12,
+  },
+  ticketIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#EBF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 12,
   },
   ticketInfo: {
