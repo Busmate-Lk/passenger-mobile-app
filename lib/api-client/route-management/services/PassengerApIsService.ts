@@ -293,7 +293,6 @@ export class PassengerApIsService {
      * @param operatorType Operator type filter
      * @param operatorId Specific operator ID filter
      * @param status Trip status filter
-     * @param directOnly Include only direct trips
      * @param page Page number (0-based)
      * @param size Page size
      * @returns PassengerPaginatedResponsePassengerTripResponse Trips found successfully
@@ -309,7 +308,6 @@ export class PassengerApIsService {
         operatorType?: 'PRIVATE' | 'CTB',
         operatorId?: string,
         status?: 'pending' | 'active' | 'completed' | 'cancelled' | 'delayed' | 'in_transit' | 'boarding' | 'departed',
-        directOnly: boolean = false,
         page?: number,
         size: number = 20,
     ): CancelablePromise<PassengerPaginatedResponsePassengerTripResponse> {
@@ -326,7 +324,6 @@ export class PassengerApIsService {
                 'operatorType': operatorType,
                 'operatorId': operatorId,
                 'status': status,
-                'directOnly': directOnly,
                 'page': page,
                 'size': size,
             },
