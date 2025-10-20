@@ -1,24 +1,56 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { CircleCheck as CheckCircle, Chrome as Home, Ticket } from 'lucide-react-native';
+import { CircleCheck as CheckCircle, Chrome as Home, Ticket, MapPin, Calendar, Clock, User } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
+import { useBooking } from '@/context/BookingContext';
+import { formatFare } from '@/utils/bookingUtils';
 
 export default function SuccessScreen() {
   const router = useRouter();
+  const { bookedTicket, bookingData, paymentData, clearBookingData } = useBooking();
 
   useEffect(() => {
-    // Auto redirect after 5 seconds
+    // Auto redirect after 8 seconds
     const timer = setTimeout(() => {
+      clearBookingData(); // Clear booking context
       router.replace('/(tabs)');
-    }, 5000);
+    }, 8000);
 
     return () => clearTimeout(timer);
   }, []);
 
+  const formatTime = (timeString?: string) => {
+    if (!timeString) return '--:--';
+    
+    // Handle both "HH:MM:SS" and "HH:MM" formats
+    const timeParts = timeString.split(':');
+    if (timeParts.length >= 2) {
+      return `${timeParts[0]}:${timeParts[1]}`;
+    }
+    
+    return timeString;
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Today';
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'short',
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return 'Today';
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView style={styles.content}>
         <View style={styles.successIcon}>
           <CheckCircle size={80} color="#1DD724" />
         </View>
@@ -27,6 +59,77 @@ export default function SuccessScreen() {
         <Text style={styles.subtitle}>
           Your bus ticket has been confirmed and saved to your account
         </Text>
+
+        {/* Ticket Information */}
+        {bookedTicket && (
+          <View style={styles.ticketCard}>
+            <Text style={styles.ticketTitle}>Ticket Details</Text>
+            
+            <View style={styles.ticketRow}>
+              <Text style={styles.ticketLabel}>Ticket ID</Text>
+              <Text style={styles.ticketValue}>#{bookedTicket.ticketId}</Text>
+            </View>
+            
+            {bookedTicket.seatNumber && (
+              <View style={styles.ticketRow}>
+                <Text style={styles.ticketLabel}>Seat Number</Text>
+                <Text style={styles.ticketValue}>{bookedTicket.seatNumber}</Text>
+              </View>
+            )}
+            
+            <View style={styles.ticketRow}>
+              <Text style={styles.ticketLabel}>Fare Amount</Text>
+              <Text style={styles.ticketValue}>{formatFare(bookedTicket.fareAmount || 0)}</Text>
+            </View>
+
+            <View style={styles.ticketRow}>
+              <Text style={styles.ticketLabel}>Payment Status</Text>
+              <Text style={[styles.ticketValue, { color: '#1DD724' }]}>
+                {bookedTicket.paymentStatus || 'Paid'}
+              </Text>
+            </View>
+
+            {paymentData && (
+              <View style={styles.ticketRow}>
+                <Text style={styles.ticketLabel}>Transaction Ref</Text>
+                <Text style={styles.ticketValue}>{paymentData.transactionRef}</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Trip Information */}
+        {bookingData && (
+          <View style={styles.tripCard}>
+            <Text style={styles.tripTitle}>Trip Information</Text>
+            
+            <View style={styles.tripRow}>
+              <MapPin size={16} color="#004CFF" />
+              <Text style={styles.tripText}>{bookingData.fromStopName} → {bookingData.toStopName}</Text>
+            </View>
+            
+            <View style={styles.tripRow}>
+              <Calendar size={16} color="#004CFF" />
+              <Text style={styles.tripText}>
+                {formatDate(bookingData.tripData.scheduledDeparture)}
+              </Text>
+            </View>
+            
+            <View style={styles.tripRow}>
+              <Clock size={16} color="#004CFF" />
+              <Text style={styles.tripText}>
+                {formatTime(bookingData.tripData.scheduledDeparture)} - {formatTime(bookingData.tripData.scheduledArrival)}
+              </Text>
+            </View>
+            
+            <View style={styles.tripRow}>
+              <User size={16} color="#004CFF" />
+              <Text style={styles.tripText}>
+                {bookingData.tripData.operator?.name || 'Bus Operator'}
+              </Text>
+            </View>
+          </View>
+        )}
         
         <View style={styles.detailsContainer}>
           <Text style={styles.detailsText}>
@@ -39,7 +142,10 @@ export default function SuccessScreen() {
 
         <View style={styles.actionsContainer}>
           <TouchableOpacity
-            onPress={() => router.push('/tickets')}
+            onPress={() => {
+              clearBookingData();
+              router.push('/tickets');
+            }}
             style={styles.ticketsButton}
           >
             <Ticket size={20} color="white" />
@@ -47,7 +153,10 @@ export default function SuccessScreen() {
           </TouchableOpacity>
           
           <TouchableOpacity
-            onPress={() => router.replace('/(tabs)')}
+            onPress={() => {
+              clearBookingData();
+              router.replace('/(tabs)');
+            }}
             style={styles.homeButton}
           >
             <Home size={20} color="#004CFF" />
@@ -56,9 +165,9 @@ export default function SuccessScreen() {
         </View>
 
         <Text style={styles.autoRedirectText}>
-          Automatically redirecting to home in 5 seconds...
+          Automatically redirecting to home in 8 seconds...
         </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -70,11 +179,11 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingHorizontal: 24,
+    paddingVertical: 40,
   },
   successIcon: {
+    alignItems: 'center',
     marginBottom: 32,
   },
   title: {
@@ -90,6 +199,66 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 32,
+  },
+  ticketCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  ticketTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 16,
+  },
+  ticketRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  ticketLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  ticketValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  tripCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  tripTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 16,
+  },
+  tripRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  tripText: {
+    fontSize: 14,
+    color: '#111827',
+    fontWeight: '500',
   },
   detailsContainer: {
     backgroundColor: 'white',

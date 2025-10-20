@@ -11,6 +11,7 @@ import {
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
 import { AuthProvider } from '@/context/AuthContext';
+import { BookingProvider } from '@/context/BookingContext';
 
 export default function RootLayout() {
   const [appIsReady, setAppIsReady] = useState(false);
@@ -56,22 +57,24 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="onboarding/splash" />
-        <Stack.Screen name="onboarding/language" />
-        <Stack.Screen name="onboarding/onboarding1" />
-        <Stack.Screen name="onboarding/onboarding2" />
-        <Stack.Screen name="onboarding/onboarding3" />
-        <Stack.Screen name="auth/login" />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="search" options={{ headerShown: false }} />
-        <Stack.Screen name="tickets" options={{ headerShown: false }} />
-        <Stack.Screen name="profile" options={{ headerShown: false }} />
-        <Stack.Screen name="notifications" options={{ headerShown: false }} />
-        <Stack.Screen name="tracking" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      {Platform.OS === 'ios' && <ExpoStatusBar style="light" />}
+      <BookingProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="onboarding/splash" />
+          <Stack.Screen name="onboarding/language" />
+          <Stack.Screen name="onboarding/onboarding1" />
+          <Stack.Screen name="onboarding/onboarding2" />
+          <Stack.Screen name="onboarding/onboarding3" />
+          <Stack.Screen name="auth/login" />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="search" options={{ headerShown: false }} />
+          <Stack.Screen name="tickets" options={{ headerShown: false }} />
+          <Stack.Screen name="profile" options={{ headerShown: false }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false }} />
+          <Stack.Screen name="tracking" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        {Platform.OS === 'ios' && <ExpoStatusBar style="light" />}
+      </BookingProvider>
     </AuthProvider>
   );
 }

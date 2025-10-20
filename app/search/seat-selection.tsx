@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Info, X, AlertTriangle, Users } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
 import AppHeader from '../../components/ui/AppHeader';
+import { useBooking } from '../../context/BookingContext';
 
 interface Seat {
   id: string;
@@ -15,9 +16,32 @@ interface Seat {
 
 export default function SeatSelectionScreen() {
   const router = useRouter();
+  const { bookingData, setSelectedSeat } = useBooking();
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [showInfo, setShowInfo] = useState(false);
-  const passengersCount = 2; // This would come from previous screen
+
+  // Redirect if no booking data
+  useEffect(() => {
+    if (!bookingData) {
+      Alert.alert(
+        'No Booking Data',
+        'Please start the booking process from the search results.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+      return;
+    }
+
+    // Initialize with already selected seat if any
+    if (bookingData.selectedSeatNumber) {
+      setSelectedSeats([bookingData.selectedSeatNumber]);
+    }
+  }, [bookingData, router]);
+
+  if (!bookingData) {
+    return null; // Will redirect via useEffect
+  }
+
+  const passengersCount = 1; // Single passenger booking only
 
   // Mock seat layout for typical Sri Lankan bus (12 rows, 2+2 configuration with rear 5-seater)
   const generateSeats = (): Seat[] => {
@@ -132,9 +156,20 @@ export default function SeatSelectionScreen() {
     if (seatStatus === 'occupied' || seatStatus === 'reserved' || seatId === 'driver') return;
 
     if (selectedSeats.includes(seatId)) {
-      setSelectedSeats(selectedSeats.filter(id => id !== seatId));
-    } else if (selectedSeats.length < passengersCount) {
-      setSelectedSeats([...selectedSeats, seatId]);
+      // Deselect the seat
+      setSelectedSeats([]);
+    } else {
+      // Select only this seat (single passenger only)
+      setSelectedSeats([seatId]);
+    }
+  };
+
+  const handleContinue = () => {
+    if (selectedSeats.length === 1) {
+      // Save selected seat to booking context
+      setSelectedSeat(selectedSeats[0]);
+      // Navigate back to booking confirmation
+      router.push('/search/booking');
     }
   };
 
@@ -362,7 +397,7 @@ export default function SeatSelectionScreen() {
           <View style={styles.busInfo}>
             <Users size={14} color="#6B7280" style={{marginRight: 4}} />
             <Text style={styles.busInfoText}>
-              {passengersCount} passengers
+              1 passenger
             </Text>
           </View>
         </View>
@@ -384,7 +419,7 @@ export default function SeatSelectionScreen() {
       {selectedSeats.length > 0 && (
         <View style={styles.selectedSeatsContainer}>
           <Text style={styles.selectedSeatsTitle}>
-            Selected Seats ({selectedSeats.length}/{passengersCount})
+            Selected Seat ({selectedSeats.length}/1)
           </Text>
           <View style={styles.selectedSeatsList}>
             {selectedSeats.map((seatId) => {
@@ -417,18 +452,18 @@ export default function SeatSelectionScreen() {
         </View>
         
         <TouchableOpacity
-          onPress={() => router.push('/search/payment')}
-          disabled={selectedSeats.length !== passengersCount}
+          onPress={handleContinue}
+          disabled={selectedSeats.length === 0}
           style={[
             styles.continueButton,
-            selectedSeats.length !== passengersCount && styles.continueButtonDisabled
+            selectedSeats.length === 0 && styles.continueButtonDisabled
           ]}
         >
           <Text style={[
             styles.continueButtonText,
-            selectedSeats.length !== passengersCount && styles.continueButtonTextDisabled
+            selectedSeats.length === 0 && styles.continueButtonTextDisabled
           ]}>
-            Continue to Payment
+            Continue with Selected Seat
           </Text>
         </TouchableOpacity>
       </View>

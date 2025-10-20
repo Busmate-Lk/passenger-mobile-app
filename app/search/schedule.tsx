@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, ActivityIndicator, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MapPin, Clock, Users, Wifi, Snowflake, Zap, Star, Phone, MessageCircle } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
 import AppHeader from '../../components/ui/AppHeader';
-import { PassengerApIsService } from '../../lib/api-client/route-management';
-import type { PassengerTripResponse } from '../../lib/api-client/route-management';
+import { PassengerApIsService, BusManagementService } from '../../lib/api-client/route-management';
+import type { PassengerTripResponse, BusResponse } from '../../lib/api-client/route-management';
+import { useBooking } from '../../context/BookingContext';
+import { useAuth } from '../../context/AuthContext';
+import { findBusByPlateNumber } from '../../utils/bookingUtils';
 
 export default function ScheduleScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { setBookingData } = useBooking();
+  const { user, isAuthenticated } = useAuth();
   const [selectedTab, setSelectedTab] = useState('schedule');
   const [tripData, setTripData] = useState<PassengerTripResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -19,6 +24,8 @@ export default function ScheduleScreen() {
   const tripId = params.tripId as string;
   const fromStopName = params.fromStopName as string || 'Origin';
   const toStopName = params.toStopName as string || 'Destination';
+  const fromStopId = params.fromStopId as string || '';
+  const toStopId = params.toStopId as string || '';
   const passengers = parseInt(params.passengers as string) || 1;
 
   useEffect(() => {
@@ -111,6 +118,105 @@ export default function ScheduleScreen() {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours}h ${mins.toString().padStart(2, '0')}m`;
+  };
+
+  // Handle book trip button press
+  const handleBookTrip = async () => {
+    // Check authentication
+    if (!isAuthenticated || !user) {
+      Alert.alert(
+        'Login Required',
+        'Please log in to book a ticket.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Login', onPress: () => router.push('/auth/login') }
+        ]
+      );
+      return;
+    }
+
+    // Check if only single passenger booking is supported
+    if (passengers > 1) {
+      Alert.alert(
+        'Single Passenger Only',
+        'Currently, only single passenger booking is supported. Please search again with 1 passenger.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    try {
+      if (!tripData) return;
+
+      let busData: BusResponse | null = null;
+
+      // Get bus data using busId if available, otherwise search by plate number
+      if (tripData.busId) {
+        try {
+          busData = await BusManagementService.getBusById(tripData.busId);
+        } catch (busError) {
+          console.warn('Could not fetch bus by ID, trying plate number search:', busError);
+        }
+      }
+
+      // If busId lookup failed or unavailable, search by plate number
+      if (!busData && tripData.bus?.plateNumber) {
+        try {
+          const busesResponse = await BusManagementService.getAllBuses(
+            0, // page
+            100, // size
+            'plateNumber', // sortBy
+            'asc', // sortDir
+            tripData.bus.plateNumber // search by plate number
+          );
+          
+          if (busesResponse.content && busesResponse.content.length > 0) {
+            busData = findBusByPlateNumber(busesResponse.content, tripData.bus.plateNumber);
+          }
+        } catch (searchError) {
+          console.warn('Could not search buses by plate number:', searchError);
+        }
+      }
+
+      if (!busData) {
+        Alert.alert(
+          'Bus Information Missing',
+          'Could not retrieve bus information. Please try again.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Prepare booking data
+      const bookingData = {
+        tripId: tripData.tripId || '',
+        tripData: tripData,
+        busData: busData,
+        // fromStopId: fromStopId,
+        fromStopId: tripData.departureStop?.id || '',
+        // toStopId: toStopId,
+        toStopId: tripData.arrivalStop?.id || '' ,
+        fromStopName: fromStopName,
+        toStopName: toStopName,
+        passengers: 1, // Force single passenger
+        fareAmount: tripData.fare || 0,
+        passengerId: user.id
+      };
+
+      // Set booking data in context
+      setBookingData(bookingData);
+
+      // Navigate to booking confirmation page
+      router.push('/search/booking');
+
+    } catch (error) {
+      console.error('Error preparing booking data:', error);
+      Alert.alert(
+        'Booking Error',
+        'Failed to prepare booking. Please try again.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   // Show loading state
@@ -384,19 +490,7 @@ export default function ScheduleScreen() {
           <Text style={styles.bookingDetails}>for {passengers} passenger{passengers !== 1 ? 's' : ''}</Text>
         </View>
         <TouchableOpacity
-          onPress={() => router.push({
-            pathname: '/search/booking',
-            params: {
-              tripId: tripData.tripId || '',
-              routeId: tripData.routeId || '',
-              fromStopName,
-              toStopName,
-              passengers: passengers.toString(),
-              price: ((tripData.fare || 0) * passengers).toString(),
-              departureTime,
-              arrivalTime
-            }
-          })}
+          onPress={handleBookTrip}
           style={[
             styles.bookButton,
             !tripData.bookingAvailable && { backgroundColor: '#9CA3AF' }

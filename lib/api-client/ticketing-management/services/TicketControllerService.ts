@@ -27,12 +27,12 @@ export class TicketControllerService {
     }
     /**
      * @param requestBody
-     * @returns string OK
+     * @returns ConductorLogTicketDTO OK
      * @throws ApiError
      */
     public static createTicket(
         requestBody: PaymentRequestDTO,
-    ): CancelablePromise<string> {
+    ): CancelablePromise<ConductorLogTicketDTO> {
         return __request(OpenAPI, {
             method: 'POST',
             url: '/api/v1/tickets/conductor/issue',
