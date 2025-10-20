@@ -43,7 +43,9 @@
         "foregroundImage": "./assets/images/busmate_lk_icon.png",
         "backgroundColor": "#004CFF"
       },
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "usesCleartextTraffic": true,
+      "networkSecurityConfig": "./android_network_security_config.xml"
     }
   }
 }

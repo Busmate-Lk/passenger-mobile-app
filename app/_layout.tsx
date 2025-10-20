@@ -12,6 +12,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { AuthProvider } from '@/context/AuthContext';
 import { BookingProvider } from '@/context/BookingContext';
+import { initializeApiClients } from '@/lib/api-client/apiConfig';
 
 export default function RootLayout() {
   const [appIsReady, setAppIsReady] = useState(false);
@@ -36,6 +37,9 @@ export default function RootLayout() {
   useEffect(() => {
     async function prepare() {
       try {
+        // Initialize API clients with proper base URLs
+        initializeApiClients();
+        
         // Wait for fonts to load
         if (fontsLoaded || fontError) {
           // Add any additional preparation here
