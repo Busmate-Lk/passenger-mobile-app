@@ -1,44 +1,166 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, SafeAreaView, Dimensions, Alert } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Download, Share, Maximize2 } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import AppHeader from '@/components/ui/AppHeader';
+import { useBooking } from '@/context/BookingContext';
+import { TicketControllerService, ConductorLogTicketDTO } from '@/lib/api-client/ticketing-management';
+import { PassengerApIsService, PassengerStopResponse } from '@/lib/api-client/route-management';
 
 export default function QRCodeScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
+  const { bookedTicket, bookingData } = useBooking();
   const [brightness, setBrightness] = useState(1);
+  const [showDebugData, setShowDebugData] = useState(false);
+  const [ticketData, setTicketData] = useState<ConductorLogTicketDTO | null>(null);
+  const [startStop, setStartStop] = useState<PassengerStopResponse | null>(null);
+  const [endStop, setEndStop] = useState<PassengerStopResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
   const screenWidth = Dimensions.get('window').width;
-  const qrSize = screenWidth - 80;
+  const qrSize = Math.min(screenWidth - 80, 300);
 
-  // Mock ticket data
-  const ticketData = {
-    bookingId: 'SB2024011501',
-    route: { from: 'Colombo Fort', to: 'Kandy' },
-    date: 'Today, Jan 15',
-    time: '08:30 AM',
-    seatNumber: 'A12',
-    qrCode: 'QR123456789'
-  };
+  // Fetch ticket data and stop details when component loads
+  useEffect(() => {
+    const fetchTicketData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const ticketId = parseInt(id as string);
+        if (!ticketId || isNaN(ticketId)) {
+          throw new Error('Invalid ticket ID');
+        }
 
-  // Generate QR code pattern (mock)
-  const generateQRPattern = () => {
-    const size = 25;
-    const pattern = [];
-    for (let i = 0; i < size; i++) {
-      const row = [];
-      for (let j = 0; j < size; j++) {
-        // Create a pseudo-random pattern based on position
-        const value = (i * j + i + j) % 3 === 0;
-        row.push(value);
+        // First try to get ticket data from API
+        let currentTicketData: ConductorLogTicketDTO;
+        
+        // If we have booking context data (during active booking flow), use it
+        if (bookedTicket && bookedTicket.ticketId === ticketId) {
+          currentTicketData = bookedTicket;
+          console.log('Using booking context data:', currentTicketData);
+        } else {
+          // Otherwise fetch from API (for viewing existing tickets)
+          currentTicketData = await TicketControllerService.getTicketById(ticketId);
+          console.log('Fetched ticket data from API:', currentTicketData);
+        }
+        
+        setTicketData(currentTicketData);
+
+        // Fetch stop details to get station names
+        const promises = [];
+        
+        if (currentTicketData.startLocationId) {
+          promises.push(
+            PassengerApIsService.getStopDetails(currentTicketData.startLocationId)
+              .then(stop => setStartStop(stop))
+              .catch(err => console.warn('Failed to fetch start stop:', err))
+          );
+        }
+        
+        if (currentTicketData.endLocationId) {
+          promises.push(
+            PassengerApIsService.getStopDetails(currentTicketData.endLocationId)
+              .then(stop => setEndStop(stop))
+              .catch(err => console.warn('Failed to fetch end stop:', err))
+          );
+        }
+
+        // Wait for all API calls to complete
+        await Promise.all(promises);
+        
+      } catch (err) {
+        console.error('Error fetching ticket data:', err);
+        setError('Failed to load ticket details. Please try again.');
+        Alert.alert(
+          'Error',
+          'Failed to load ticket details. Please try again.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      } finally {
+        setLoading(false);
       }
-      pattern.push(row);
+    };
+
+    fetchTicketData();
+  }, [id, bookedTicket]);
+
+  // Generate QR code data from the actual ticket data
+  const getQRCodeData = () => {
+    if (!ticketData) {
+      return null;
     }
-    return pattern;
+
+    const qrData = {
+      ticketId: ticketData.ticketId || parseInt(id as string),
+      passengerName: "Alice Johnson", // TODO: Get from user context when available
+      startStation: startStop?.name || bookingData?.fromStopName || "Unknown Station",
+      endStation: endStop?.name || bookingData?.toStopName || "Unknown Station",
+      seatNumber: ticketData.seatNumber || "N/A",
+      passengerCount: ticketData.passengerCount || 1,
+      ticketFee: ticketData.fareAmount || 0,
+      paymentStatus: ticketData.paymentStatus || "PAID",
+      status: "active"
+    };
+
+    console.log('Generated QR data:', qrData);
+    return qrData;
   };
 
-  const qrPattern = generateQRPattern();
+  const qrData = getQRCodeData();
+  const qrCodeString = qrData ? JSON.stringify(qrData) : '';
+
+  // Display data for UI
+  const getDisplayData = () => {
+    if (!ticketData) {
+      return {
+        route: { from: 'Loading...', to: 'Loading...' },
+        bookingId: 'Loading...',
+        seatNumber: 'Loading...',
+        fare: 'Loading...'
+      };
+    }
+
+    return {
+      route: { 
+        from: startStop?.name || bookingData?.fromStopName || 'Unknown', 
+        to: endStop?.name || bookingData?.toStopName || 'Unknown' 
+      },
+      bookingId: `TB${ticketData.ticketId}`,
+      seatNumber: ticketData.seatNumber || 'N/A',
+      fare: `LKR ${(ticketData.fareAmount || 0).toFixed(2)}`
+    };
+  };
+
+  const displayData = getDisplayData();
+
+  // Don't render QR if still loading or no data
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <AppHeader title="QR Code" />
+        <View style={[styles.content, { justifyContent: 'center' }]}>
+          <Text style={styles.routeText}>Loading ticket...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !ticketData || !qrData) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <AppHeader title="QR Code" />
+        <View style={[styles.content, { justifyContent: 'center' }]}>
+          <Text style={styles.routeText}>Unable to load ticket</Text>
+          <Text style={styles.dateText}>{error || 'Ticket data not available'}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: brightness > 0.8 ? 'white' : '#F3F4F9' }]}>
@@ -58,52 +180,52 @@ export default function QRCodeScreen() {
       <View style={styles.content}>
         {/* Ticket Info */}
         <View style={styles.ticketInfo}>
-          <Text style={styles.routeText}>{ticketData.route.from} → {ticketData.route.to}</Text>
-          <Text style={styles.dateText}>{ticketData.date} • {ticketData.time}</Text>
-          <Text style={styles.seatText}>Seat {ticketData.seatNumber}</Text>
+          <Text style={styles.routeText}>{displayData.route.from} → {displayData.route.to}</Text>
+          <Text style={styles.dateText}>Today • {ticketData?.paymentStatus || 'PAID'}</Text>
+          <Text style={styles.seatText}>Seat {displayData.seatNumber}</Text>
         </View>
 
         {/* QR Code */}
-        <View style={styles.qrContainer}>
-          <View style={[styles.qrCode, { width: qrSize, height: qrSize }]}>
-            {qrPattern.map((row, i) => (
-              <View key={i} style={styles.qrRow}>
-                {row.map((cell, j) => (
-                  <View
-                    key={j}
-                    style={[
-                      styles.qrCell,
-                      {
-                        backgroundColor: cell ? '#000' : 'transparent',
-                        width: qrSize / 25,
-                        height: qrSize / 25,
-                      }
-                    ]}
-                  />
-                ))}
-              </View>
-            ))}
+        <TouchableOpacity 
+          style={styles.qrContainer}
+          onLongPress={() => setShowDebugData(!showDebugData)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.qrCode}>
+            <QRCode
+              value={qrCodeString}
+              size={qrSize}
+              color="#000000"
+              backgroundColor="#FFFFFF"
+              logoSize={30}
+              logoMargin={2}
+              logoBackgroundColor="transparent"
+            />
           </View>
-          
-          {/* QR Code Border */}
-          <View style={styles.qrBorder} />
-          
-          {/* Corner Markers */}
-          <View style={[styles.cornerMarker, styles.topLeft]} />
-          <View style={[styles.cornerMarker, styles.topRight]} />
-          <View style={[styles.cornerMarker, styles.bottomLeft]} />
-          <View style={[styles.cornerMarker, styles.bottomRight]} />
-        </View>
+        </TouchableOpacity>
 
-        {/* Booking ID */}
-        <Text style={styles.bookingId}>#{ticketData.bookingId}</Text>
+        {/* Debug Data - Long press QR to toggle */}
+        {showDebugData && (
+          <View style={styles.debugContainer}>
+            <Text style={styles.debugTitle}>QR Code Data (for testing):</Text>
+            <Text style={styles.debugText}>{qrCodeString}</Text>
+          </View>
+        )}
+
+        {/* Ticket Details */}
+        <View style={styles.ticketDetails}>
+          <Text style={styles.bookingId}>#{displayData.bookingId}</Text>
+          <Text style={styles.fareText}>{displayData.fare}</Text>
+          <Text style={styles.passengerText}>Passenger: {qrData?.passengerName || 'Alice Johnson'}</Text>
+        </View>
 
         {/* Instructions */}
         <View style={styles.instructionsContainer}>
-          <Text style={styles.instructionsTitle}>How to use this QR code:</Text>
-          <Text style={styles.instructionText}>• Show this code to the bus conductor</Text>
-          <Text style={styles.instructionText}>• Keep your phone screen bright</Text>
-          <Text style={styles.instructionText}>• Have a backup screenshot ready</Text>
+          <Text style={styles.instructionsTitle}>Ticket Validation Instructions:</Text>
+          <Text style={styles.instructionText}>• Show this QR code to the bus conductor for validation</Text>
+          <Text style={styles.instructionText}>• Ensure your screen brightness is high for better scanning</Text>
+          <Text style={styles.instructionText}>• Keep the QR code steady while conductor scans</Text>
+          <Text style={styles.instructionText}>• Have your ID ready if requested by conductor</Text>
         </View>
 
         {/* Action Buttons */}
@@ -159,8 +281,8 @@ const styles = StyleSheet.create({
     color: '#004CFF',
   },
   qrContainer: {
-    position: 'relative',
     marginBottom: 24,
+    alignItems: 'center',
   },
   qrCode: {
     backgroundColor: 'white',
@@ -171,63 +293,28 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  qrRow: {
-    flexDirection: 'row',
-  },
-  qrCell: {
-    // Individual QR code cells
-  },
-  qrBorder: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    borderRadius: 16,
-  },
-  cornerMarker: {
-    position: 'absolute',
-    width: 20,
-    height: 20,
-    borderWidth: 3,
-    borderColor: '#004CFF',
-  },
-  topLeft: {
-    top: 15,
-    left: 15,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-    borderTopLeftRadius: 4,
-  },
-  topRight: {
-    top: 15,
-    right: 15,
-    borderLeftWidth: 0,
-    borderBottomWidth: 0,
-    borderTopRightRadius: 4,
-  },
-  bottomLeft: {
-    bottom: 15,
-    left: 15,
-    borderRightWidth: 0,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: 4,
-  },
-  bottomRight: {
-    bottom: 15,
-    right: 15,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    borderBottomRightRadius: 4,
+  ticketDetails: {
+    alignItems: 'center',
+    marginBottom: 32,
   },
   bookingId: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#004CFF',
-    marginBottom: 32,
+    marginBottom: 8,
+  },
+  fareText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  passengerText: {
+    fontSize: 14,
+    color: '#6B7280',
   },
   instructionsContainer: {
     backgroundColor: 'white',
@@ -269,5 +356,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#004CFF',
+  },
+  debugContainer: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    width: '100%',
+  },
+  debugTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  debugText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontFamily: 'monospace',
+    lineHeight: 16,
   },
 });
