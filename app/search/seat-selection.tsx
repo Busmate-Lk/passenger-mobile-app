@@ -43,108 +43,69 @@ export default function SeatSelectionScreen() {
 
   const passengersCount = 1; // Single passenger booking only
 
-  // Mock seat layout for typical Sri Lankan bus (12 rows, 2+2 configuration with rear 5-seater)
+  // Standardized 49-seat layout for all buses:
+  // - 11 rows of 2+2 configuration (44 seats: 1-44) 
+  // - 1 last row with 5 seats (5 seats: 45-49)
+  // Seat numbering: 1 = front-left corner, 49 = back-right corner
+  // Row 1: seats 1,2 (left) | 3,4 (right)  
+  // Row 2: seats 5,6 (left) | 7,8 (right)  
+  // ...continuing pattern...
+  // Row 11: seats 41,42 (left) | 43,44 (right)
+  // Last row: seats 45,46,47,48,49 (5 seats across)
   const generateSeats = (): Seat[] => {
     const seats: Seat[] = [];
-    const occupiedSeats = ['A1', 'A4', 'B2', 'C3', 'D1', 'E4', 'F2', 'G3'];
-    const reservedSeats = ['B3', 'D4'];
-    const prioritySeats = ['A3', 'B1', 'B4']; // For elderly, pregnant women, differently-abled
+    // Some mock occupied seats for demonstration (using seat numbers 1-49)
+    const occupiedSeats = ['1', '4', '6', '11', '17', '20', '25', '31', '47'];
+    const reservedSeats = ['7', '16'];
+    const prioritySeats = ['3', '5', '8']; // For elderly, pregnant women, differently-abled
     
-    // Front cabin - driver's area
-    seats.push({
-      id: 'driver',
-      number: 'DR',
-      status: 'occupied',
-      type: 'window'
-    });
+    let seatNumber = 1;
     
-    // Regular rows (10 rows of 2+2 configuration)
-    for (let row = 1; row <= 10; row++) {
-      const rowLetter = String.fromCharCode(64 + row); // A, B, C...
+    // 11 rows of 2+2 configuration (44 seats)
+    for (let row = 1; row <= 11; row++) {
+      // Left side seats (2 seats)
+      for (let leftSeat = 1; leftSeat <= 2; leftSeat++) {
+        const seatId = seatNumber.toString();
+        seats.push({
+          id: seatId,
+          number: seatId,
+          status: prioritySeats.includes(seatId) ? 'priority' : 
+                 occupiedSeats.includes(seatId) ? 'occupied' : 
+                 reservedSeats.includes(seatId) ? 'reserved' : 'available',
+          type: leftSeat === 1 ? 'window' : 'aisle',
+          price: 250
+        });
+        seatNumber++;
+      }
       
-      // Left side seats
-      seats.push({
-        id: `${rowLetter}1`,
-        number: `${rowLetter}1`,
-        status: prioritySeats.includes(`${rowLetter}1`) ? 'priority' : 
-               occupiedSeats.includes(`${rowLetter}1`) ? 'occupied' : 
-               reservedSeats.includes(`${rowLetter}1`) ? 'reserved' : 'available',
-        type: 'window',
-        price: 250
-      });
-      
-      seats.push({
-        id: `${rowLetter}2`,
-        number: `${rowLetter}2`,
-        status: prioritySeats.includes(`${rowLetter}2`) ? 'priority' : 
-               occupiedSeats.includes(`${rowLetter}2`) ? 'occupied' : 
-               reservedSeats.includes(`${rowLetter}2`) ? 'reserved' : 'available',
-        type: 'aisle',
-        price: 250
-      });
-      
-      // Right side seats
-      seats.push({
-        id: `${rowLetter}3`,
-        number: `${rowLetter}3`,
-        status: prioritySeats.includes(`${rowLetter}3`) ? 'priority' : 
-               occupiedSeats.includes(`${rowLetter}3`) ? 'occupied' : 
-               reservedSeats.includes(`${rowLetter}3`) ? 'reserved' : 'available',
-        type: 'aisle',
-        price: 250
-      });
-      
-      seats.push({
-        id: `${rowLetter}4`,
-        number: `${rowLetter}4`,
-        status: prioritySeats.includes(`${rowLetter}4`) ? 'priority' : 
-               occupiedSeats.includes(`${rowLetter}4`) ? 'occupied' : 
-               reservedSeats.includes(`${rowLetter}4`) ? 'reserved' : 'available',
-        type: 'window',
-        price: 250
-      });
+      // Right side seats (2 seats)
+      for (let rightSeat = 1; rightSeat <= 2; rightSeat++) {
+        const seatId = seatNumber.toString();
+        seats.push({
+          id: seatId,
+          number: seatId,
+          status: prioritySeats.includes(seatId) ? 'priority' : 
+                 occupiedSeats.includes(seatId) ? 'occupied' : 
+                 reservedSeats.includes(seatId) ? 'reserved' : 'available',
+          type: rightSeat === 1 ? 'aisle' : 'window',
+          price: 250
+        });
+        seatNumber++;
+      }
     }
     
-    // Last row - 5-seater
-    seats.push({
-      id: 'last1',
-      number: 'L1',
-      status: 'available',
-      type: 'window',
-      price: 225
-    });
-    
-    seats.push({
-      id: 'last2',
-      number: 'L2',
-      status: 'available',
-      type: 'middle',
-      price: 225
-    });
-    
-    seats.push({
-      id: 'last3',
-      number: 'L3',
-      status: occupiedSeats.includes('L3') ? 'occupied' : 'available',
-      type: 'middle',
-      price: 225
-    });
-    
-    seats.push({
-      id: 'last4',
-      number: 'L4',
-      status: 'available',
-      type: 'middle',
-      price: 225
-    });
-    
-    seats.push({
-      id: 'last5',
-      number: 'L5',
-      status: occupiedSeats.includes('L5') ? 'occupied' : 'available',
-      type: 'window',
-      price: 225
-    });
+    // Last row - 5 seats (seats 45-49)
+    for (let lastSeat = 1; lastSeat <= 5; lastSeat++) {
+      const seatId = seatNumber.toString();
+      seats.push({
+        id: seatId,
+        number: seatId,
+        status: occupiedSeats.includes(seatId) ? 'occupied' : 'available',
+        type: lastSeat === 1 || lastSeat === 5 ? 'window' : 'middle',
+        price: 225
+      });
+      seatNumber++;
+    }
     
     return seats;
   };
@@ -219,7 +180,11 @@ export default function SeatSelectionScreen() {
   );
 
   const renderRegularRows = () => {
-    const regularSeats = seats.filter(seat => seat.id !== 'driver' && !seat.id.startsWith('last'));
+    // First 44 seats (seats 1-44) in 11 rows of 4 seats each
+    const regularSeats = seats.filter(seat => {
+      const seatNum = parseInt(seat.id);
+      return seatNum >= 1 && seatNum <= 44;
+    });
     const rows = [];
 
     for (let i = 0; i < regularSeats.length; i += 4) {
@@ -296,11 +261,15 @@ export default function SeatSelectionScreen() {
   };
 
   const renderLastRow = () => {
-    const lastRowSeats = seats.filter(seat => seat.id.startsWith('last'));
+    // Last 5 seats (seats 45-49)
+    const lastRowSeats = seats.filter(seat => {
+      const seatNum = parseInt(seat.id);
+      return seatNum >= 45 && seatNum <= 49;
+    });
     
     return (
       <View style={styles.lastRow}>
-        <Text style={styles.rowNumber}>11</Text>
+        <Text style={styles.rowNumber}>12</Text>
         <View style={styles.lastRowSeats}>
           {lastRowSeats.map((seat) => {
             const status = getSeatStatus(seat.id);
