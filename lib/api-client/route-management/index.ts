@@ -28,6 +28,7 @@ export type { ExpiringPermit } from './models/ExpiringPermit';
 export type { ImportError } from './models/ImportError';
 export type { JsonNode } from './models/JsonNode';
 export type { KPIMetric } from './models/KPIMetric';
+export type { LocalTime } from './models/LocalTime';
 export type { LocationDto } from './models/LocationDto';
 export type { OperatorFilterOptionsResponse } from './models/OperatorFilterOptionsResponse';
 export type { OperatorImportResponse } from './models/OperatorImportResponse';

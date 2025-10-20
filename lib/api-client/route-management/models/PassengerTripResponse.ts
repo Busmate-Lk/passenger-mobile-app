@@ -15,6 +15,11 @@ export type PassengerTripResponse = {
     estimatedArrival?: string;
     duration?: number;
     distance?: number;
+    scheduleId?: string;
+    routeId?: string;
+    routeGroupId?: string;
+    operatorId?: string;
+    busId?: string;
     departureStop?: PassengerStopSummary;
     arrivalStop?: PassengerStopSummary;
     intermediateStops?: Array<PassengerIntermediateStop>;
