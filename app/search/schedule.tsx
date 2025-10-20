@@ -1,175 +1,163 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MapPin, Clock, Users, Wifi, Snowflake, Zap, Star, Phone, MessageCircle } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
-import mockData from '../../data/mockBusRouteData.json';
 import AppHeader from '../../components/ui/AppHeader';
-
-interface ScheduleData {
-  id: string;
-  operator: string;
-  routeNumber: string;
-  busName: string;
-  fullRoute: string;
-  searchJourney: {
-    from: string;
-    to: string;
-  };
-  rating: number;
-  reviews: number;
-  busImage: string;
-  driver: {
-    name: string;
-    rating: number;
-    experience: string;
-    phone: string;
-  };
-  conductor: {
-    name: string;
-    rating: number;
-    experience: string;
-    phone: string;
-  };
-  schedule: Array<{
-    time: string;
-    location: string;
-    status: string;
-    delay: number;
-    isInUserJourney: boolean;
-  }>;
-  amenityDetails: Array<{
-    name: string;
-    icon: string;
-    available: boolean;
-  }>;
-  price: number;
-  availableSeats: number;
-  totalSeats: number;
-}
+import { PassengerApIsService } from '../../lib/api-client/route-management';
+import type { PassengerTripResponse } from '../../lib/api-client/route-management';
 
 export default function ScheduleScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const [selectedTab, setSelectedTab] = useState('schedule');
-  const [scheduleData, setScheduleData] = useState<ScheduleData | null>(null);
+  const [tripData, setTripData] = useState<PassengerTripResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Parse parameters
-  const routeId = params.routeId as string;
-  const from = params.from as string || 'Colombo Fort';
-  const to = params.to as string || 'Kandy';
+  const tripId = params.tripId as string;
+  const fromStopName = params.fromStopName as string || 'Origin';
+  const toStopName = params.toStopName as string || 'Destination';
   const passengers = parseInt(params.passengers as string) || 1;
 
   useEffect(() => {
-    // Find the route by ID in mock data
-    const foundRoute = mockData.routes.find(route => route.id === routeId);
-    
-    if (foundRoute) {
-      // Transform the data to match the schedule screen format
-      const transformedData: ScheduleData = {
-        id: foundRoute.id,
-        operator: foundRoute.operatorName,
-        routeNumber: foundRoute.routeNumber,
-        busName: foundRoute.busName,
-        fullRoute: foundRoute.fullRoute,
-        searchJourney: {
-          from: from,
-          to: to
-        },
-        rating: foundRoute.rating,
-        reviews: foundRoute.reviews,
-        busImage: foundRoute.busImage,
-        driver: foundRoute.driver,
-        conductor: foundRoute.conductor,
-        schedule: foundRoute.schedule.map(stop => ({
-          ...stop,
-          // Update isInUserJourney based on actual user journey
-          isInUserJourney: isStopInUserJourney(stop.location, from, to, foundRoute.schedule)
-        })),
-        amenityDetails: foundRoute.amenityDetails,
-        price: foundRoute.price,
-        availableSeats: foundRoute.availableSeats,
-        totalSeats: foundRoute.totalSeats
-      };
-      
-      setScheduleData(transformedData);
-    }
-  }, [routeId, from, to]);
+    const fetchTripDetails = async () => {
+      if (!tripId) {
+        setError('Trip ID is required');
+        setLoading(false);
+        return;
+      }
 
-  // Helper function to determine if a stop is in the user's journey
-  const isStopInUserJourney = (stopLocation: string, userFrom: string, userTo: string, schedule: any[]) => {
-    const fromIndex = schedule.findIndex(stop => 
-      stop.location.toLowerCase().includes(userFrom.toLowerCase())
-    );
-    const toIndex = schedule.findIndex(stop => 
-      stop.location.toLowerCase().includes(userTo.toLowerCase())
-    );
-    const stopIndex = schedule.findIndex(stop => stop.location === stopLocation);
-    
-    // If we can't find the stops, include all stops as a fallback
-    if (fromIndex === -1 || toIndex === -1) return true;
-    
-    return stopIndex >= fromIndex && stopIndex <= toIndex;
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await PassengerApIsService.getTripDetails(
+          tripId,
+          true, // includeRealTimeStatus
+          true  // includeStopTimes
+        );
+        
+        setTripData(response);
+      } catch (err) {
+        console.error('Error fetching trip details:', err);
+        setError('Failed to load trip details. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTripDetails();
+  }, [tripId]);
+
+  // Helper function to get amenity icon based on facility name
+  const getAmenityIcon = (facility: string) => {
+    if (facility === 'hasAirConditioning' || facility.includes('ac') || facility.includes('air')) {
+      return <Snowflake size={20} color="#004CFF" />;
+    }
+    if (facility === 'hasWiFi' || facility.includes('wifi')) {
+      return <Wifi size={20} color="#004CFF" />;
+    }
+    if (facility === 'isAccessible' || facility.includes('accessible') || facility.includes('seat')) {
+      return <Users size={20} color="#004CFF" />;
+    }
+    if (facility === 'hasToilet' || facility.includes('toilet') || facility.includes('restroom')) {
+      return <MapPin size={20} color="#004CFF" />;
+    }
+    if (facility.includes('charging') || facility.includes('usb')) {
+      return <Zap size={20} color="#004CFF" />;
+    }
+    return <Users size={20} color="#004CFF" />;
   };
 
-  const getAmenityIcon = (icon: string) => {
-    switch (icon) {
-      case 'ac': return <Snowflake size={20} color="#004CFF" />;
-      case 'wifi': return <Wifi size={20} color={scheduleData?.amenityDetails.find(a => a.icon === 'wifi')?.available ? "#004CFF" : "#6B7280"} />;
-      case 'charging': return <Zap size={20} color="#004CFF" />;
-      case 'seats': return <Users size={20} color="#004CFF" />;
-      default: return <Users size={20} color="#004CFF" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status?: string) => {
     switch (status) {
       case 'departure': 
-      case 'origin': return '#004CFF';
+      case 'origin': 
+      case 'scheduled': return '#004CFF';
       case 'arrival': 
       case 'destination': return '#FF3831';
+      case 'delayed': return '#FF8C00';
+      case 'completed': return '#10B981';
       default: return '#6B7280';
     }
   };
 
-  const calculateDuration = () => {
-    if (!scheduleData || !scheduleData.schedule.length) return '0h 00m';
+  const formatTime = (timeString?: string) => {
+    if (!timeString) return '--:--';
     
-    const userJourneyStops = scheduleData.schedule.filter(stop => stop.isInUserJourney);
-    if (userJourneyStops.length < 2) return '0h 00m';
+    // Handle both "HH:MM:SS" and "HH:MM" formats
+    const timeParts = timeString.split(':');
+    if (timeParts.length >= 2) {
+      return `${timeParts[0]}:${timeParts[1]}`;
+    }
     
-    const startTime = userJourneyStops[0].time;
-    const endTime = userJourneyStops[userJourneyStops.length - 1].time;
+    // Handle ISO datetime string
+    if (timeString.includes('T')) {
+      const date = new Date(timeString);
+      return date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
+      });
+    }
     
-    // Calculate duration between start and end times
-    const [startHour, startMin] = startTime.split(':').map(Number);
-    const [endHour, endMin] = endTime.split(':').map(Number);
-    
-    const startMinutes = startHour * 60 + startMin;
-    const endMinutes = endHour * 60 + endMin;
-    
-    const diffMinutes = endMinutes - startMinutes;
-    const hours = Math.floor(diffMinutes / 60);
-    const minutes = diffMinutes % 60;
-    
-    return `${hours}h ${minutes.toString().padStart(2, '0')}m`;
+    return timeString;
   };
 
-  // Show loading or error state if data is not found
-  if (!scheduleData) {
+  const formatDuration = (minutes?: number) => {
+    if (!minutes) return '--';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins.toString().padStart(2, '0')}m`;
+  };
+
+  // Show loading state
+  if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <AppHeader title="Schedule Details" />
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading schedule details...</Text>
+          <ActivityIndicator size="large" color="#004CFF" />
+          <Text style={styles.loadingText}>Loading trip details...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  const userJourneyStops = scheduleData.schedule.filter(stop => stop.isInUserJourney);
-  const departureTime = userJourneyStops.length > 0 ? userJourneyStops[0].time : '00:00';
-  const arrivalTime = userJourneyStops.length > 0 ? userJourneyStops[userJourneyStops.length - 1].time : '00:00';
+  // Show error state
+  if (error) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <AppHeader title="Schedule Details" />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show not found state
+  if (!tripData) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <AppHeader title="Schedule Details" />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>Trip details not found.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Extract departure and arrival times from intermediateStops or fallback to scheduled times
+  const departureTime = tripData.intermediateStops && tripData.intermediateStops.length > 0 
+    ? formatTime(tripData.intermediateStops[0].departureTime || tripData.intermediateStops[0].scheduledDepartureTime?.toString())
+    : formatTime(tripData.scheduledDeparture);
+    
+  const arrivalTime = tripData.intermediateStops && tripData.intermediateStops.length > 0
+    ? formatTime(tripData.intermediateStops[tripData.intermediateStops.length - 1].arrivalTime || tripData.intermediateStops[tripData.intermediateStops.length - 1].scheduledArrivalTime?.toString())
+    : formatTime(tripData.scheduledArrival);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -180,37 +168,45 @@ export default function ScheduleScreen() {
         {/* Bus Info Card */}
         <View style={styles.busInfoCard}>
           <View style={styles.busHeader}>
-            <Image source={{ uri: scheduleData.busImage }} style={styles.busImage} />
+            <View style={styles.busImagePlaceholder}>
+              <Users size={40} color="#004CFF" />
+            </View>
             <View style={styles.busDetails}>
-              <Text style={styles.busName}>{scheduleData.busName}</Text>
-              <Text style={styles.operatorName}>{scheduleData.operator}</Text>
+              <Text style={styles.busName}>
+                {tripData.bus?.plateNumber || 'Bus Information'}
+              </Text>
+              <Text style={styles.operatorName}>
+                {tripData.operator?.name || 'Bus Operator'}
+              </Text>
               
               <View style={styles.journeyInfo}>
                 <Text style={styles.journeyText}>
-                  {scheduleData.searchJourney.from} to {scheduleData.searchJourney.to}
+                  {fromStopName} to {toStopName}
                 </Text>
               </View>
               
               <View style={styles.ratingContainer}>
                 <Star size={14} color="#FFB800" fill="#FFB800" />
-                <Text style={styles.ratingText}>{scheduleData.rating}</Text>
-                <Text style={styles.reviewsText}>({scheduleData.reviews} reviews)</Text>
+                <Text style={styles.ratingText}>4.5</Text>
+                <Text style={styles.reviewsText}>(--)</Text>
               </View>
             </View>
           </View>
           
           <View style={styles.infoRow}>
             <View style={styles.infoItemRoute}>
-              <Text style={styles.infoLabel}>Full Route</Text>
-              <Text style={styles.infoValue}>{scheduleData.fullRoute}</Text>
+              <Text style={styles.infoLabel}>Route</Text>
+              <Text style={styles.infoValue}>{tripData.routeName || 'N/A'}</Text>
             </View>
             <View style={styles.infoItemSeats}>
               <Text style={styles.infoLabel}>Seats Available</Text>
-              <Text style={styles.availableSeats}>{scheduleData.availableSeats}/{scheduleData.totalSeats}</Text>
+              <Text style={styles.availableSeats}>
+                {tripData.availableSeats || 0}/{tripData.bus?.capacity || 0}
+              </Text>
             </View>
             <View style={styles.infoItemPrice}>
-              <Text style={styles.infoLabel}>Price</Text>
-              <Text style={styles.priceText}>LKR {scheduleData.price}</Text>
+              <Text style={styles.infoLabel}>Fare</Text>
+              <Text style={styles.priceText}>LKR {tripData.fare || 0}</Text>
             </View>
           </View>
         </View>
@@ -259,69 +255,62 @@ export default function ScheduleScreen() {
               </View>
               <View style={styles.scheduleHeaderItem}>
                 <Text style={styles.scheduleHeaderTitle}>Duration</Text>
-                <Text style={styles.scheduleHeaderValue}>{calculateDuration()}</Text>
+                <Text style={styles.scheduleHeaderValue}>{formatDuration(tripData.duration)}</Text>
               </View>
             </View>
             
             <View style={styles.journeySegmentInfo}>
               <Text style={styles.journeySegmentTitle}>Your Journey ({passengers} passenger{passengers !== 1 ? 's' : ''})</Text>
-              <Text style={styles.journeySegmentDetails}>{scheduleData.searchJourney.from} → {scheduleData.searchJourney.to}</Text>
+              <Text style={styles.journeySegmentDetails}>{fromStopName} → {toStopName}</Text>
             </View>
             
-            {scheduleData.schedule.map((stop, index) => (
-              <View key={index} style={[
-                styles.scheduleItem,
-                stop.isInUserJourney && styles.scheduleItemInJourney
-              ]}>
-                <View style={styles.timeContainer}>
-                  <Text style={[
-                    styles.scheduleTime,
-                    (stop.location === scheduleData.searchJourney.from || 
-                     stop.location === scheduleData.searchJourney.to) && 
-                    styles.highlightedText
-                  ]}>
-                    {stop.time}
-                  </Text>
-                  {stop.delay > 0 && (
-                    <Text style={styles.delay}>+{stop.delay}min</Text>
-                  )}
-                </View>
-                <View style={styles.stopIndicator}>
-                  <View style={[
-                    styles.stopDot, 
-                    { backgroundColor: getStatusColor(stop.status) },
-                    (stop.location === scheduleData.searchJourney.from || 
-                     stop.location === scheduleData.searchJourney.to) && 
-                    styles.highlightedDot
-                  ]} />
-                  {index < scheduleData.schedule.length - 1 && (
+            {tripData.intermediateStops?.map((stop, index) => {
+              const isUserPickup = stop.name === fromStopName || stop.stopId === tripData.departureStop?.id;
+              const isUserDropoff = stop.name === toStopName || stop.stopId === tripData.arrivalStop?.id;
+              const isUserStop = isUserPickup || isUserDropoff;
+              
+              return (
+                <View key={stop.stopId || index} style={[
+                  styles.scheduleItem,
+                  isUserStop && styles.scheduleItemInJourney
+                ]}>
+                  <View style={styles.timeContainer}>
+                    <Text style={[
+                      styles.scheduleTime,
+                      isUserStop && styles.highlightedText
+                    ]}>
+                      {formatTime(stop.departureTime || stop.scheduledDepartureTime?.toString())}
+                    </Text>
+                    {(stop.departureDelay && stop.departureDelay > 0) && (
+                      <Text style={styles.delay}>+{stop.departureDelay}min</Text>
+                    )}
+                  </View>
+                  <View style={styles.stopIndicator}>
                     <View style={[
-                      styles.stopLine,
-                      !scheduleData.schedule[index+1].isInUserJourney && 
-                      !stop.isInUserJourney && styles.fadedLine
+                      styles.stopDot, 
+                      { backgroundColor: getStatusColor(stop.status) },
+                      isUserStop && styles.highlightedDot
                     ]} />
-                  )}
+                    {index < (tripData.intermediateStops?.length || 0) - 1 && (
+                      <View style={styles.stopLine} />
+                    )}
+                  </View>
+                  <View style={styles.stopInfo}>
+                    <Text style={[
+                      styles.stopLocation,
+                      isUserStop && styles.highlightedText
+                    ]}>
+                      {stop.name || 'Unknown Stop'}
+                      {isUserPickup && ' • Your Pickup'}
+                      {isUserDropoff && ' • Your Dropoff'}
+                    </Text>
+                    <Text style={styles.stopStatus}>
+                      {stop.status || 'scheduled'} {stop.city && `• ${stop.city}`}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.stopInfo}>
-                  <Text style={[
-                    styles.stopLocation,
-                    (stop.location === scheduleData.searchJourney.from || 
-                     stop.location === scheduleData.searchJourney.to) && 
-                    styles.highlightedText
-                  ]}>
-                    {stop.location}
-                  </Text>
-                  <Text style={styles.stopStatus}>
-                    {stop.status === 'origin' ? 'Origin' :
-                     stop.status === 'destination' ? 'Destination' :
-                     stop.status === 'departure' ? 'Departure' : 
-                     stop.status === 'arrival' ? 'Arrival' : 'Stop'}
-                    {(stop.location === scheduleData.searchJourney.from) && ' • Your Pickup'}
-                    {(stop.location === scheduleData.searchJourney.to) && ' • Your Dropoff'}
-                  </Text>
-                </View>
-              </View>
-            ))}
+              );
+            }) || <Text style={styles.noDataText}>No stop information available</Text>}
             
             <View style={styles.scheduleNotes}>
               <Text style={styles.scheduleNotesText}>
@@ -333,30 +322,44 @@ export default function ScheduleScreen() {
 
         {selectedTab === 'amenities' && (
           <View style={styles.amenitiesContainer}>
-            <Text style={styles.sectionTitle}>Bus Amenities</Text>
+            <Text style={styles.sectionTitle}>Bus Features</Text>
             <View style={styles.amenitiesList}>
-              {scheduleData.amenityDetails.map((amenity, index) => (
-                <View key={index} style={styles.amenityItem}>
-                  <View style={[
-                    styles.amenityIconContainer,
-                    { backgroundColor: amenity.available ? '#EBF2FF' : '#F3F4F6' }
-                  ]}>
-                    {getAmenityIcon(amenity.icon)}
-                  </View>
-                  <Text style={[
-                    styles.amenityName,
-                    { color: amenity.available ? '#111827' : '#9CA3AF' }
-                  ]}>
-                    {amenity.name}
-                  </Text>
-                  <Text style={[
-                    styles.amenityStatus,
-                    { color: amenity.available ? '#1DD724' : '#FF3831' }
-                  ]}>
-                    {amenity.available ? 'Available' : 'Not Available'}
-                  </Text>
+              {tripData.bus?.features ? (
+                Object.entries(tripData.bus.features).map(([featureName, featureValue], index) => {
+                  const displayName = featureName === 'isAccessible' ? 'Accessible' :
+                                    featureName === 'hasAirConditioning' ? 'Air Conditioning' :
+                                    featureName === 'hasWiFi' ? 'WiFi' :
+                                    featureName === 'hasToilet' ? 'Toilet' :
+                                    featureName.charAt(0).toUpperCase() + featureName.slice(1).replace(/([A-Z])/g, ' $1');
+                  
+                  return (
+                    <View key={index} style={styles.amenityItem}>
+                      <View style={[
+                        styles.amenityIconContainer,
+                        { backgroundColor: featureValue ? '#EBF2FF' : '#F3F4F6' }
+                      ]}>
+                        {getAmenityIcon(featureName)}
+                      </View>
+                      <Text style={[
+                        styles.amenityName,
+                        { color: featureValue ? '#111827' : '#9CA3AF' }
+                      ]}>
+                        {displayName}
+                      </Text>
+                      <Text style={[
+                        styles.amenityStatus,
+                        { color: featureValue ? '#1DD724' : '#FF3831' }
+                      ]}>
+                        {featureValue ? 'Available' : 'Not Available'}
+                      </Text>
+                    </View>
+                  );
+                })
+              ) : (
+                <View style={styles.amenityItem}>
+                  <Text style={styles.noDataText}>No feature information available</Text>
                 </View>
-              ))}
+              )}
             </View>
           </View>
         )}
@@ -365,55 +368,9 @@ export default function ScheduleScreen() {
           <View style={styles.staffContainer}>
             <Text style={styles.sectionTitle}>Bus Staff</Text>
             
-            <Text style={styles.staffTypeLabel}>Driver</Text>
-            <View style={styles.staffCard}>
-              <View style={styles.staffAvatar}>
-                <Text style={styles.staffInitial}>{scheduleData.driver.name.charAt(0)}</Text>
-              </View>
-              <View style={styles.staffInfo}>
-                <Text style={styles.staffName}>{scheduleData.driver.name}</Text>
-                <View style={styles.staffRating}>
-                  <Star size={14} color="#FFB800" fill="#FFB800" />
-                  <Text style={styles.staffRatingText}>{scheduleData.driver.rating}</Text>
-                  <Text style={styles.staffExperience}>• {scheduleData.driver.experience}</Text>
-                </View>
-              </View>
-              <View style={styles.staffActions}>
-                <TouchableOpacity style={styles.contactButton}>
-                  <Phone size={18} color="#004CFF" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.contactButton}>
-                  <MessageCircle size={18} color="#004CFF" />
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            <Text style={[styles.staffTypeLabel, {marginTop: 24}]}>Conductor</Text>
-            <View style={styles.staffCard}>
-              <View style={[styles.staffAvatar, {backgroundColor: '#1DD724'}]}>
-                <Text style={styles.staffInitial}>{scheduleData.conductor.name.charAt(0)}</Text>
-              </View>
-              <View style={styles.staffInfo}>
-                <Text style={styles.staffName}>{scheduleData.conductor.name}</Text>
-                <View style={styles.staffRating}>
-                  <Star size={14} color="#FFB800" fill="#FFB800" />
-                  <Text style={styles.staffRatingText}>{scheduleData.conductor.rating}</Text>
-                  <Text style={styles.staffExperience}>• {scheduleData.conductor.experience}</Text>
-                </View>
-              </View>
-              <View style={styles.staffActions}>
-                <TouchableOpacity style={styles.contactButton}>
-                  <Phone size={18} color="#004CFF" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.contactButton}>
-                  <MessageCircle size={18} color="#004CFF" />
-                </TouchableOpacity>
-              </View>
-            </View>
-            
             <View style={styles.staffNotesContainer}>
               <Text style={styles.staffNotes}>
-                You can contact the staff for assistance during your journey. Both driver and conductor are experienced professionals committed to your safety and comfort.
+                Staff information is not available for this trip. Please contact the operator directly for driver and conductor details.
               </Text>
             </View>
           </View>
@@ -423,25 +380,32 @@ export default function ScheduleScreen() {
       {/* Book Button */}
       <View style={styles.bookingContainer}>
         <View style={styles.bookingInfo}>
-          <Text style={styles.bookingPrice}>LKR {scheduleData.price * passengers}</Text>
+          <Text style={styles.bookingPrice}>LKR {(tripData.fare || 0) * passengers}</Text>
           <Text style={styles.bookingDetails}>for {passengers} passenger{passengers !== 1 ? 's' : ''}</Text>
         </View>
         <TouchableOpacity
           onPress={() => router.push({
             pathname: '/search/booking',
             params: {
-              routeId: scheduleData.id,
-              from: scheduleData.searchJourney.from,
-              to: scheduleData.searchJourney.to,
+              tripId: tripData.tripId || '',
+              routeId: tripData.routeId || '',
+              fromStopName,
+              toStopName,
               passengers: passengers.toString(),
-              price: (scheduleData.price * passengers).toString(),
+              price: ((tripData.fare || 0) * passengers).toString(),
               departureTime,
               arrivalTime
             }
           })}
-          style={styles.bookButton}
+          style={[
+            styles.bookButton,
+            !tripData.bookingAvailable && { backgroundColor: '#9CA3AF' }
+          ]}
+          disabled={!tripData.bookingAvailable}
         >
-          <Text style={styles.bookButtonText}>Book This Bus</Text>
+          <Text style={styles.bookButtonText}>
+            {tripData.bookingAvailable ? 'Book This Trip' : 'Booking Unavailable'}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -461,6 +425,17 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 16,
     color: '#6B7280',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#EF4444',
+    textAlign: 'center',
+  },
+  noDataText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   content: {
     flex: 1,
@@ -485,6 +460,15 @@ const styles = StyleSheet.create({
     height: 75,
     borderRadius: 12,
     marginRight: 16,
+  },
+  busImagePlaceholder: {
+    width: 100,
+    height: 75,
+    borderRadius: 12,
+    marginRight: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   busDetails: {
     flex: 1,
