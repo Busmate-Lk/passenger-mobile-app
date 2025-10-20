@@ -151,7 +151,7 @@ export default function SignUpScreen() {
                 elevation: 8
               }}>
                 <Image
-                  source={require('@/assets/images/Busmate-lk-icon.png')}
+                  source={require('@/assets/images/busmate_lk_icon.png')}
                   style={{ width: 120, height: 120 }}
                   resizeMode="contain"
                 />

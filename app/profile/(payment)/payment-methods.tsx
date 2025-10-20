@@ -76,9 +76,9 @@ export default function PaymentMethodsScreen() {
   const getCardLogo = (type) => {
     switch(type) {
       case 'visa':
-        return require('../../../assets/images/visa-logo.png'); // You'll need to add these image assets
+        return require('../../../assets/images/visa_logo.png'); // You'll need to add these image assets
       case 'mastercard':
-        return require('../../../assets/images/mastercard-logo.png');
+        return require('../../../assets/images/mastercard_logo.png');
       default:
         return null;
     }

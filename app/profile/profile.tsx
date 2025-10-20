@@ -68,33 +68,9 @@ export default function ProfileInfoScreen() {
     );
   }
 
-  // Add a function to map image paths to require statements
+  // Use placeholder image instead of problematic asset images
   const getProfileImage = (imagePath: string | undefined) => {
-    if (!imagePath) return require('@/assets/users/kavinda.png');
-    
-    // Map each possible image path to its require statement
-    switch (imagePath) {
-      case '/assets/users/kavinda.png':
-      case '@/assets/users/kavinda.png':
-        return require('@/assets/users/kavinda.png');
-      case '/assets/users/manusha.png':
-      case '@/assets/users/manusha.png':
-        return require('@/assets/users/manusha.png');
-      case '/assets/users/nadun.png':
-      case '@/assets/users/nadun.png':
-        return require('@/assets/users/nadun.png');
-      case '/assets/users/nethmi.png':
-      case '@/assets/users/nethmi.png':
-        return require('@/assets/users/nethmi.png');
-      case '/assets/users/chamudi.png':
-      case '@/assets/users/chamudi.png':
-        return require('@/assets/users/chamudi.png');
-      case '/assets/users/ishan.png':
-      case '@/assets/users/ishan.png':
-        return require('@/assets/users/ishan.png');
-      default:
-        return require('@/assets/users/kavinda.png');
-    }
+    return { uri: 'https://iamkavinda.vercel.app/assets/profile-photo-CCXUFtA8.jpeg' };
   };
 
   // Format member since date for display

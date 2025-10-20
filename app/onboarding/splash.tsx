@@ -68,7 +68,7 @@ export default function SplashScreen() {
             elevation: 8,
           }}>
             <Image
-              source={require('@/assets/images/Busmate-lk-icon.png')}
+              source={require('@/assets/images/busmate_lk_icon.png')}
               style={{ width: 200, height: 200 }}
               resizeMode="contain"
             />
