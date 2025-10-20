@@ -25,7 +25,6 @@ import {
   Ticket,
   ArrowUp,
   ArrowDown,
-  Wallet,
   MoreHorizontal,
   Navigation,
   Heart,
@@ -165,16 +164,6 @@ export default function HomeScreen() {
               <Bus size={24} color="#1DD724" />
             </View>
             <Text style={styles.quickActionText}>Track Bus</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quickActionButton}
-            onPress={() => router.push('/wallet')}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: '#F0EEFF' }]}>
-              <Wallet size={24} color="#8a2abeff" />
-            </View>
-            <Text style={styles.quickActionText}>Wallet</Text>
           </TouchableOpacity>
         </View>
 
