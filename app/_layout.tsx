@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { StatusBar, Platform, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { useFonts } from 'expo-font';
 import {
@@ -60,25 +61,27 @@ export default function RootLayout() {
   }
 
   return (
-    <AuthProvider>
-      <BookingProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="onboarding/splash" />
-          <Stack.Screen name="onboarding/language" />
-          <Stack.Screen name="onboarding/onboarding1" />
-          <Stack.Screen name="onboarding/onboarding2" />
-          <Stack.Screen name="onboarding/onboarding3" />
-          <Stack.Screen name="auth/login" />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="search" options={{ headerShown: false }} />
-          <Stack.Screen name="tickets" options={{ headerShown: false }} />
-          <Stack.Screen name="profile" options={{ headerShown: false }} />
-          <Stack.Screen name="notifications" options={{ headerShown: false }} />
-          <Stack.Screen name="tracking" options={{ headerShown: false }} />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        {Platform.OS === 'ios' && <ExpoStatusBar style="light" />}
-      </BookingProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <BookingProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="onboarding/splash" />
+            <Stack.Screen name="onboarding/language" />
+            <Stack.Screen name="onboarding/onboarding1" />
+            <Stack.Screen name="onboarding/onboarding2" />
+            <Stack.Screen name="onboarding/onboarding3" />
+            <Stack.Screen name="auth/login" />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="search" options={{ headerShown: false }} />
+            <Stack.Screen name="tickets" options={{ headerShown: false }} />
+            <Stack.Screen name="profile" options={{ headerShown: false }} />
+            <Stack.Screen name="notifications" options={{ headerShown: false }} />
+            <Stack.Screen name="tracking" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+          {Platform.OS === 'ios' && <ExpoStatusBar style="light" />}
+        </BookingProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

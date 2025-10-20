@@ -45,7 +45,12 @@
       },
       "softwareKeyboardLayoutMode": "pan",
       "usesCleartextTraffic": true,
-      "networkSecurityConfig": "./android_network_security_config.xml"
+      "networkSecurityConfig": "./android_network_security_config.xml",
+      "statusBar": {
+        "barStyle": "light-content",
+        "backgroundColor": "#004CFF",
+        "translucent": false
+      }
     }
   }
 }

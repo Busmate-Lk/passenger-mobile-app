@@ -6,8 +6,8 @@ import {
   StyleSheet,
   Modal,
   ScrollView,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Calendar, Clock, Users } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 

@@ -4,7 +4,6 @@ import {
   Text, 
   TextInput, 
   TouchableOpacity, 
-  SafeAreaView, 
   StatusBar, 
   Alert, 
   ActivityIndicator,
@@ -14,6 +13,7 @@ import {
   ScrollView,
   Dimensions
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, User, Phone, Check } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
