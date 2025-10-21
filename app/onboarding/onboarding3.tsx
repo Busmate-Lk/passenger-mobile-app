@@ -1,6 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const TicketIcon = ({ size = 64, color = "#FF3831" }) => (
@@ -16,6 +18,7 @@ const TicketIcon = ({ size = 64, color = "#FF3831" }) => (
 
 export default function Onboarding3Screen() {
   const router = useRouter();
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
   const handleGetStarted = async () => {
     try {
@@ -31,8 +34,8 @@ export default function Onboarding3Screen() {
 
   return (
     <>
-      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      <StatusBar backgroundColor="#004CFF" barStyle="light-content" />
+      <SafeAreaView style={safeAreaStyle}>
         <View style={{ flex: 1, paddingHorizontal: 24, paddingVertical: 32 }}>
           {/* Skip Button */}
           <View style={{ alignItems: 'flex-end', marginBottom: 32 }}>

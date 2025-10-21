@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Info, X, AlertTriangle, Users } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
 import AppHeader from '../../components/ui/AppHeader';
 import { useBooking } from '../../context/BookingContext';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 interface Seat {
   id: string;
@@ -19,6 +21,7 @@ export default function SeatSelectionScreen() {
   const { bookingData, setSelectedSeat } = useBooking();
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [showInfo, setShowInfo] = useState(false);
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
   // Redirect if no booking data
   useEffect(() => {
@@ -55,9 +58,11 @@ export default function SeatSelectionScreen() {
   const generateSeats = (): Seat[] => {
     const seats: Seat[] = [];
     // Some mock occupied seats for demonstration (using seat numbers 1-49)
-    const occupiedSeats = ['1', '4', '6', '11', '17', '20', '25', '31', '47'];
-    const reservedSeats = ['7', '16'];
-    const prioritySeats = ['3', '5', '8']; // For elderly, pregnant women, differently-abled
+    // const occupiedSeats = ['1', '4', '6', '11', '17', '20', '25', '31', '47'];
+    const occupiedSeats = [''];
+    // const reservedSeats = ['7', '16'];
+    const reservedSeats = [''];
+    const prioritySeats = ['']; // For elderly, pregnant women, differently-abled
     
     let seatNumber = 1;
     
@@ -299,7 +304,7 @@ export default function SeatSelectionScreen() {
   const totalPrice = selectedSeats.reduce((total, seatId) => total + getSeatPrice(seatId), 0);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       {/* Header */}
       <AppHeader 
         title="Select Seats"
@@ -347,10 +352,10 @@ export default function SeatSelectionScreen() {
             <View style={[styles.legendSeat, styles.seatOccupied]} />
             <Text style={styles.legendText}>Occupied</Text>
           </View>
-          <View style={styles.legendItem}>
+          {/* <View style={styles.legendItem}>
             <View style={[styles.legendSeat, styles.seatReserved]} />
             <Text style={styles.legendText}>Reserved</Text>
-          </View>
+          </View> */}
           {/* <View style={styles.legendItem}>
             <View style={[styles.legendSeat, styles.seatPriority]} />
             <Text style={styles.legendText}>Priority</Text>
@@ -665,17 +670,33 @@ const styles = StyleSheet.create({
   middleSeat: {
     // Styling specific to middle seats
   },
+  // seatAvailable: {
+  //   backgroundColor: '#E6F7FF',
+  //   borderColor: '#91D5FF',
+  // },
+  // seatSelected: {
+  //   backgroundColor: '#1890FF',
+  //   borderColor: '#096DD9',
+  // },
+  // seatOccupied: {
+  //   backgroundColor: '#F5F5F5',
+  //   borderColor: '#D9D9D9',
+  // },
+  // seatReserved: {
+  //   backgroundColor: '#FFF7E6',
+  //   borderColor: '#FFD591',
+  // },
   seatAvailable: {
-    backgroundColor: '#E6F7FF',
-    borderColor: '#91D5FF',
+    backgroundColor: '#E8F5E8',
+    borderColor: '#22C55E',
   },
   seatSelected: {
     backgroundColor: '#1890FF',
     borderColor: '#096DD9',
   },
   seatOccupied: {
-    backgroundColor: '#F5F5F5',
-    borderColor: '#D9D9D9',
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F59E0B',
   },
   seatReserved: {
     backgroundColor: '#FFF7E6',

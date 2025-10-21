@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { TriangleAlert as AlertTriangle, RefreshCw } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
 import AppHeader from '@/components/ui/AppHeader';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function CancelTicketScreen() {
   const router = useRouter();
   const [selectedReason, setSelectedReason] = useState('');
   const [customReason, setCustomReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
   const cancellationReasons = [
     'Change of plans',
@@ -44,7 +47,7 @@ export default function CancelTicketScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       {/* Header */}
       <AppHeader title="Cancel Ticket" />
 

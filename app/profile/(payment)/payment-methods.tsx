@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, StyleSheet, Image, Modal, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Modal, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
   CreditCard,
@@ -10,11 +11,13 @@ import {
   X
 } from 'lucide-react-native';
 import AppHeader from '@/components/ui/AppHeader';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function PaymentMethodsScreen() {
   const router = useRouter();
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState(null);
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
   // Mock payment methods data
   const [paymentMethods, setPaymentMethods] = useState([
@@ -96,7 +99,7 @@ export default function PaymentMethodsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       <AppHeader title="Payment Methods" />
 
       <ScrollView style={styles.content}>

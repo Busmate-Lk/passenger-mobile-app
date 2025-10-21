@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { CreditCard, Calendar, Lock, User, CheckCircle, ArrowLeft } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
@@ -8,10 +9,12 @@ import { useBooking } from '@/context/BookingContext';
 import { TicketControllerService } from '@/lib/api-client/ticketing-management';
 import type { PaymentRequestDTO } from '@/lib/api-client/ticketing-management';
 import { generateTransactionRef, formatFare, validateBookingData } from '@/utils/bookingUtils';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function PaymentScreen() {
   const router = useRouter();
   const { bookingData, setPaymentData, setBookedTicket, setBookingInProgress, isBookingInProgress } = useBooking();
+  const safeAreaStyle = useSafeAreaContainerStyles();
   
   // Payment form state
   const [cardNumber, setCardNumber] = useState('');
@@ -140,7 +143,7 @@ export default function PaymentScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       <AppHeader title="Payment" />
 
       <ScrollView style={styles.content}>

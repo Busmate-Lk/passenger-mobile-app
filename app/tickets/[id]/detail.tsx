@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { QrCode, Download, Share, Calendar, Clock, MapPin, User, Phone, MessageCircle, TriangleAlert as AlertTriangle } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
@@ -8,6 +9,7 @@ import AppHeader from '@/components/ui/AppHeader';
 import { TicketControllerService } from '@/lib/api-client/ticketing-management/services/TicketControllerService';
 import { PassengerApIsService } from '@/lib/api-client/route-management/services/PassengerApIsService';
 import type { ConductorLogTicketDTO } from '@/lib/api-client/ticketing-management/models/ConductorLogTicketDTO';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 import type { PassengerStopResponse } from '@/lib/api-client/route-management/models/PassengerStopResponse';
 
 export default function TicketDetailScreen() {
@@ -20,6 +22,7 @@ export default function TicketDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
   useEffect(() => {
     const fetchTicketDetails = async () => {
@@ -120,7 +123,7 @@ export default function TicketDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={safeAreaStyle}>
         <AppHeader title="Ticket Details" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#004CFF" />
@@ -132,7 +135,7 @@ export default function TicketDetailScreen() {
 
   if (error || !ticket) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={safeAreaStyle}>
         <AppHeader title="Ticket Details" />
         <View style={styles.errorContainer}>
           <Text style={styles.errorTitle}>Error Loading Ticket</Text>
@@ -162,7 +165,7 @@ export default function TicketDetailScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       {/* Header */}
       <AppHeader 
         title="Ticket Details"

@@ -1,12 +1,15 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MapPin, Calendar, Clock, Users, CreditCard, Download, Share } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
 import AppHeader from '../../components/ui/AppHeader';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function SummaryScreen() {
   const router = useRouter();
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
   const bookingDetails = {
     bookingId: 'SB2024011501',
@@ -29,7 +32,7 @@ export default function SummaryScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       {/* Header */}
       <AppHeader title="Booking Summary" />
 

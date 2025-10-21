@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
   CreditCard, 
@@ -11,11 +12,13 @@ import {
   Ban
 } from 'lucide-react-native';
 import AppHeader from '@/components/ui/AppHeader';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function AddPaymentMethodScreen() {
   const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
   const [methodType, setMethodType] = useState('card'); // 'card' or 'bank'
+  const safeAreaStyle = useSafeAreaContainerStyles();
   
   // Credit/Debit card form state
   const [cardForm, setCardForm] = useState({
@@ -126,7 +129,7 @@ export default function AddPaymentMethodScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       <AppHeader title="Add Payment Method" />
 
       <ScrollView style={styles.content}>

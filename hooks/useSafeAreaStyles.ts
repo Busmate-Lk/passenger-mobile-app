@@ -17,14 +17,29 @@ export const useStatusBarHeight = () => {
   return Platform.OS === 'android' ? insets.top : 0;
 };
 
-// Safe area container with primary blue background for top area
+// Safe area container - only handles safe area without background color
 export const useSafeAreaContainerStyles = () => {
   const insets = useSafeAreaInsets();
 
   return {
     flex: 1,
-    backgroundColor: '#004CFF', // Primary blue background for top safe area
+    backgroundColor: '#F3F4F9', // Default light background for content
     paddingTop: Platform.OS === 'android' ? insets.top : 0,
+  };
+};
+
+// Status bar background styles (blue background for status bar area only)
+export const useStatusBarBackgroundStyles = () => {
+  const insets = useSafeAreaInsets();
+
+  return {
+    position: 'absolute' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    height: Platform.OS === 'android' ? insets.top : 0,
+    backgroundColor: '#004CFF', // Primary blue background for status bar area
+    zIndex: 1000,
   };
 };
 

@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, User, Phone, MapPin, Calendar, Clock, Plus, UserPlus, CheckCircle, ArrowRight } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
 import AppHeader from '@/components/ui/AppHeader';
 import { useBooking } from '@/context/BookingContext';
 import { formatFare } from '@/utils/bookingUtils';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function BookingScreen() {
   const router = useRouter();
   const { bookingData, setSelectedSeat } = useBooking();
+  const safeAreaStyle = useSafeAreaContainerStyles();
   
   // Get selected seat from booking data
   const selectedSeat = bookingData?.selectedSeatNumber;
@@ -65,7 +68,7 @@ export default function BookingScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       <AppHeader title="Booking Confirmation" />
 
       <ScrollView style={styles.content}>
@@ -95,14 +98,14 @@ export default function BookingScreen() {
         </View>
 
         {/* Passenger Information */}
-        <View style={styles.passengersCard}>
+        {/* <View style={styles.passengersCard}>
           <Text style={styles.sectionTitle}>Passenger Information</Text>
           <View style={styles.passengerInfoDisplay}>
             <Text style={styles.passengerNote}>
               Booking for: 1 passenger (Single passenger booking only)
             </Text>
           </View>
-        </View>
+        </View> */}
 
         {/* Seat Selection (Optional) */}
         <View style={styles.seatCard}>

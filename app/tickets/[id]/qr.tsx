@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, Dimensions, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Dimensions, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Download, Share, Maximize2 } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
@@ -8,6 +9,7 @@ import AppHeader from '@/components/ui/AppHeader';
 import { useBooking } from '@/context/BookingContext';
 import { TicketControllerService, ConductorLogTicketDTO } from '@/lib/api-client/ticketing-management';
 import { PassengerApIsService, PassengerStopResponse } from '@/lib/api-client/route-management';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function QRCodeScreen() {
   const router = useRouter();
@@ -20,6 +22,7 @@ export default function QRCodeScreen() {
   const [endStop, setEndStop] = useState<PassengerStopResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const safeAreaStyle = useSafeAreaContainerStyles();
   
   const screenWidth = Dimensions.get('window').width;
   const qrSize = Math.min(screenWidth - 80, 300);
@@ -97,7 +100,7 @@ export default function QRCodeScreen() {
 
     const qrData = {
       ticketId: ticketData.ticketId || parseInt(id as string),
-      passengerName: "Alice Johnson", // TODO: Get from user context when available
+      passengerName: "Kavinda Dewmith", // TODO: Get from user context when available
       startStation: startStop?.name || bookingData?.fromStopName || "Unknown Station",
       endStation: endStop?.name || bookingData?.toStopName || "Unknown Station",
       seatNumber: ticketData.seatNumber || "N/A",
@@ -141,7 +144,7 @@ export default function QRCodeScreen() {
   // Don't render QR if still loading or no data
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={safeAreaStyle}>
         <AppHeader title="QR Code" />
         <View style={[styles.content, { justifyContent: 'center' }]}>
           <Text style={styles.routeText}>Loading ticket...</Text>
@@ -152,7 +155,7 @@ export default function QRCodeScreen() {
 
   if (error || !ticketData || !qrData) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={safeAreaStyle}>
         <AppHeader title="QR Code" />
         <View style={[styles.content, { justifyContent: 'center' }]}>
           <Text style={styles.routeText}>Unable to load ticket</Text>
@@ -163,7 +166,7 @@ export default function QRCodeScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: brightness > 0.8 ? 'white' : '#F3F4F9' }]}>
+    <SafeAreaView style={[safeAreaStyle, { backgroundColor: brightness > 0.8 ? 'white' : '#F3F4F9' }]}>
       {/* Header */}
       <AppHeader 
         title="QR Code"
@@ -216,7 +219,7 @@ export default function QRCodeScreen() {
         <View style={styles.ticketDetails}>
           <Text style={styles.bookingId}>#{displayData.bookingId}</Text>
           <Text style={styles.fareText}>{displayData.fare}</Text>
-          <Text style={styles.passengerText}>Passenger: {qrData?.passengerName || 'Alice Johnson'}</Text>
+          <Text style={styles.passengerText}>Passenger: {qrData?.passengerName || 'Kavinda Dewmith'}</Text>
         </View>
 
         {/* Instructions */}

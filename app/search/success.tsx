@@ -1,23 +1,54 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { CircleCheck as CheckCircle, Chrome as Home, Ticket, MapPin, Calendar, Clock, User } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
 import { useBooking } from '@/context/BookingContext';
 import { formatFare } from '@/utils/bookingUtils';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function SuccessScreen() {
   const router = useRouter();
   const { bookedTicket, bookingData, paymentData, clearBookingData } = useBooking();
+  const safeAreaStyle = useSafeAreaContainerStyles();
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
     // Auto redirect after 8 seconds
     const timer = setTimeout(() => {
-      clearBookingData(); // Clear booking context
-      router.replace('/(tabs)');
+      // Check if component is still mounted
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      try {
+        // First, navigate to home
+        router.replace('/(tabs)');
+        
+        // Then clear booking data after a small delay to avoid race conditions
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            clearBookingData();
+          }
+        }, 100);
+      } catch (error) {
+        console.error('Auto-redirect error:', error);
+        // Fallback: just clear data if navigation fails
+        if (isMountedRef.current) {
+          clearBookingData();
+        }
+      }
     }, 8000);
 
     return () => clearTimeout(timer);
+  }, [clearBookingData, router]);
+
+  // Cleanup effect to mark component as unmounted
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
   }, []);
 
   const formatTime = (timeString?: string) => {
@@ -49,7 +80,7 @@ export default function SuccessScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       <ScrollView style={styles.content}>
         <View style={styles.successIcon}>
           <CheckCircle size={80} color="#1DD724" />
@@ -143,8 +174,21 @@ export default function SuccessScreen() {
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             onPress={() => {
-              clearBookingData();
-              router.push('/tickets');
+              if (!isMountedRef.current) return;
+              
+              try {
+                router.push('/tickets');
+                setTimeout(() => {
+                  if (isMountedRef.current) {
+                    clearBookingData();
+                  }
+                }, 100);
+              } catch (error) {
+                console.error('Navigation to tickets error:', error);
+                if (isMountedRef.current) {
+                  clearBookingData();
+                }
+              }
             }}
             style={styles.ticketsButton}
           >
@@ -154,8 +198,21 @@ export default function SuccessScreen() {
           
           <TouchableOpacity
             onPress={() => {
-              clearBookingData();
-              router.replace('/(tabs)');
+              if (!isMountedRef.current) return;
+              
+              try {
+                router.replace('/(tabs)');
+                setTimeout(() => {
+                  if (isMountedRef.current) {
+                    clearBookingData();
+                  }
+                }, 100);
+              } catch (error) {
+                console.error('Navigation to home error:', error);
+                if (isMountedRef.current) {
+                  clearBookingData();
+                }
+              }
             }}
             style={styles.homeButton}
           >

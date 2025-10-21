@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Image, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
   Camera, 
@@ -14,6 +15,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import AppHeader from '@/components/ui/AppHeader';
 import { PassengerControllerService, PassengerDTO, PassengerUpdateDTO } from '@/lib/api-client/user-management';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function EditProfileScreen() {
   const router = useRouter();
@@ -21,6 +23,7 @@ export default function EditProfileScreen() {
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const { user, updateUserProfile } = useAuth();
   const [profileData, setProfileData] = useState<PassengerDTO | null>(null);
+  const safeAreaStyle = useSafeAreaContainerStyles();
   
   // Initialize form with empty defaults - will be populated from API
   const [formData, setFormData] = useState({
@@ -144,7 +147,7 @@ export default function EditProfileScreen() {
   // Show loading state while fetching profile data
   if (isLoadingProfile) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={safeAreaStyle}>
         <AppHeader title="Edit Profile" />
         <View style={[styles.content, styles.centered]}>
           <ActivityIndicator size="large" color="#004CFF" />
@@ -155,7 +158,7 @@ export default function EditProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       <AppHeader title="Edit Profile" />
 
       <ScrollView style={styles.content}>

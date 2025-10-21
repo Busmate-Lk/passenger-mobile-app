@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MapPin, Clock, Users, Wifi, Snowflake, Zap, Star, Phone, MessageCircle } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
@@ -8,6 +9,7 @@ import { PassengerApIsService, BusManagementService } from '../../lib/api-client
 import type { PassengerTripResponse, BusResponse } from '../../lib/api-client/route-management';
 import { useBooking } from '../../context/BookingContext';
 import { useAuth } from '../../context/AuthContext';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 import { findBusByPlateNumber } from '../../utils/bookingUtils';
 
 export default function ScheduleScreen() {
@@ -19,6 +21,7 @@ export default function ScheduleScreen() {
   const [tripData, setTripData] = useState<PassengerTripResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
   // Parse parameters
   const tripId = params.tripId as string;
@@ -222,7 +225,7 @@ export default function ScheduleScreen() {
   // Show loading state
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={safeAreaStyle}>
         <AppHeader title="Schedule Details" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#004CFF" />
@@ -235,7 +238,7 @@ export default function ScheduleScreen() {
   // Show error state
   if (error) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={safeAreaStyle}>
         <AppHeader title="Schedule Details" />
         <View style={styles.loadingContainer}>
           <Text style={styles.errorText}>{error}</Text>
@@ -247,7 +250,7 @@ export default function ScheduleScreen() {
   // Show not found state
   if (!tripData) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={safeAreaStyle}>
         <AppHeader title="Schedule Details" />
         <View style={styles.loadingContainer}>
           <Text style={styles.errorText}>Trip details not found.</Text>
@@ -266,7 +269,7 @@ export default function ScheduleScreen() {
     : formatTime(tripData.scheduledArrival);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       {/* Header */}
       <AppHeader title="Schedule Details" />
 
