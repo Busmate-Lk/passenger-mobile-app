@@ -31,15 +31,46 @@ export default function StopSearchInput({
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedStop, setSelectedStop] = useState<PassengerStopResponse | null>(null);
+  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+
+  // Update query when value prop changes (from parent)
+  useEffect(() => {
+    if (value !== query) {
+      setQuery(value);
+      if (!value) {
+        setSelectedStop(null);
+        setStops([]);
+        setShowDropdown(false);
+      }
+    }
+  }, [value]);
 
   useEffect(() => {
-    if (query.length > 2) {
-      searchStops(query);
+    // Clear any existing timer
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+
+    // Only search if query has at least 2 characters and is not the same as selected stop
+    if (query.length >= 2 && (!selectedStop || query !== selectedStop.name)) {
+      // Debounce the search to avoid too many API calls
+      const timer = setTimeout(() => {
+        searchStops(query);
+      }, 300); // 300ms debounce
+      
+      setDebounceTimer(timer);
     } else {
       setStops([]);
       setShowDropdown(false);
     }
-  }, [query]);
+
+    // Cleanup function
+    return () => {
+      if (debounceTimer) {
+        clearTimeout(debounceTimer);
+      }
+    };
+  }, [query, selectedStop]);
 
   const searchStops = async (searchText: string) => {
     try {
@@ -66,15 +97,31 @@ export default function StopSearchInput({
   const handleStopSelect = (stop: PassengerStopResponse) => {
     setSelectedStop(stop);
     setQuery(stop.name || '');
+    setStops([]);
     setShowDropdown(false);
     onStopSelect(stop);
   };
 
   const handleTextChange = (text: string) => {
     setQuery(text);
+    // Clear selection if user types something different
     if (selectedStop && text !== selectedStop.name) {
       setSelectedStop(null);
     }
+  };
+
+  const handleFocus = () => {
+    // Only show dropdown if we have search results and no stop is selected
+    if (stops.length > 0 && !selectedStop) {
+      setShowDropdown(true);
+    }
+  };
+
+  const handleBlur = () => {
+    // Delay hiding dropdown to allow for tap events
+    setTimeout(() => {
+      setShowDropdown(false);
+    }, 150);
   };
 
   return (
@@ -88,9 +135,8 @@ export default function StopSearchInput({
             placeholder={placeholder}
             value={query}
             onChangeText={handleTextChange}
-            onFocus={() => {
-              if (stops.length > 0) setShowDropdown(true);
-            }}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
             autoCapitalize="words"
           />
           {loading && (
@@ -102,14 +148,16 @@ export default function StopSearchInput({
           <View style={styles.dropdown}>
             <ScrollView
               style={styles.dropdownList}
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps="always"
               nestedScrollEnabled
+              showsVerticalScrollIndicator={false}
             >
               {stops.map((item) => (
                 <TouchableOpacity
-                  key={item.stopId || ''}
+                  key={item.stopId || item.name || ''}
                   style={styles.dropdownItem}
                   onPress={() => handleStopSelect(item)}
+                  activeOpacity={0.7}
                 >
                   <MapPin size={16} color="#6B7280" />
                   <View style={styles.stopInfo}>

@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,7 +13,7 @@ import { Search, ArrowUpDown, Filter, MapPin, Clock } from 'lucide-react-native'
 import AppHeader from '../../components/ui/AppHeader';
 import RouteFilterModal from '../../components/modals/NewRouteFilterModal';
 import StopSearchInput from '../../components/StopSearchInput';
-import { PassengerStopResponse } from '../../lib/api-client/route-management';
+import { PassengerStopResponse, PassengerApIsService } from '../../lib/api-client/route-management';
 
 interface FilterOptionsType {
   travelDate: Date;
@@ -29,16 +30,8 @@ export default function SearchScreen() {
   const [fromStop, setFromStop] = useState<PassengerStopResponse | null>(null);
   const [toStop, setToStop] = useState<PassengerStopResponse | null>(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [recentSearches, setRecentSearches] = useState([
-    'Colombo Fort to Kandy',
-    'Negombo to Colombo',
-    'Galle to Colombo',
-  ]);
-
-  // Popular destinations - we'll use static data for now but could come from API
-  const popularDestinations = [
-    'Colombo Fort', 'Kandy', 'Galle', 'Negombo', 'Anuradhapura', 'Matara'
-  ];
+  const [popularDestinations, setPopularDestinations] = useState<PassengerStopResponse[]>([]);
+  const [loadingDestinations, setLoadingDestinations] = useState(true);
 
   const [filterOptions, setFilterOptions] = useState<FilterOptionsType>({
     travelDate: new Date(),
@@ -50,15 +43,50 @@ export default function SearchScreen() {
     passengers: 1
   });
 
+  // Load popular destinations from API
+  useEffect(() => {
+    loadPopularDestinations();
+  }, []);
+
+  const loadPopularDestinations = async () => {
+    try {
+      setLoadingDestinations(true);
+      // Get popular stops - we'll search for major cities/areas
+      const majorCities = ['Colombo', 'Kandy', 'Galle', 'Negombo', 'Anuradhapura', 'Matara'];
+      const destinations: PassengerStopResponse[] = [];
+
+      for (const city of majorCities) {
+        try {
+          const response = await PassengerApIsService.searchStops(
+            undefined, // name
+            city, // city
+            undefined, // searchText
+            undefined, // accessibleOnly
+            0, // page
+            1 // size - just get the first result for each city
+          );
+          
+          if (response.content && response.content.length > 0) {
+            destinations.push(response.content[0]);
+          }
+        } catch (error) {
+          console.warn(`Failed to load destination for ${city}:`, error);
+        }
+      }
+
+      setPopularDestinations(destinations);
+    } catch (error) {
+      console.error('Error loading popular destinations:', error);
+      // Fallback to empty array if API fails
+      setPopularDestinations([]);
+    } finally {
+      setLoadingDestinations(false);
+    }
+  };
+
   const handleSearch = () => {
     if (!fromStop || !toStop) {
       return;
-    }
-
-    // Save to recent searches
-    const searchString = `${fromStop.name} to ${toStop.name}`;
-    if (!recentSearches.includes(searchString)) {
-      setRecentSearches(prev => [searchString, ...prev.slice(0, 4)]);
     }
 
     // Navigate to results with search parameters
@@ -88,6 +116,15 @@ export default function SearchScreen() {
 
   const applyFilters = (newFilters: FilterOptionsType) => {
     setFilterOptions(newFilters);
+  };
+
+  const handleDestinationSelect = (destination: PassengerStopResponse) => {
+    // If fromStop is empty, set it as from, otherwise set as to
+    if (!fromStop) {
+      setFromStop(destination);
+    } else {
+      setToStop(destination);
+    }
   };
 
   const formatFilterSummary = () => {
@@ -191,50 +228,27 @@ export default function SearchScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Recent Searches */}
-          {recentSearches.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Recent Searches</Text>
-                <TouchableOpacity onPress={() => setRecentSearches([])}>
-                  <Text style={styles.clearText}>Clear</Text>
-                </TouchableOpacity>
-              </View>
-
-              {recentSearches.map((search, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.recentSearchItem}
-                  onPress={() => {
-                    // Note: This is simplified - in real implementation you'd need to search for stops by name
-                    // For now, we'll skip this functionality and let user search manually
-                  }}
-                >
-                  <View style={styles.recentSearchIcon}>
-                    <Clock size={16} color="#004CFF" />
-                  </View>
-                  <Text style={styles.recentSearchText}>{search}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
           {/* Popular Destinations */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Popular Destinations</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Popular Destinations</Text>
+              {loadingDestinations && (
+                <ActivityIndicator size="small" color="#004CFF" />
+              )}
+            </View>
             <View style={styles.destinationsGrid}>
               {popularDestinations.map((destination, index) => (
                 <TouchableOpacity
-                  key={index}
+                  key={destination.stopId || index}
                   style={styles.destinationChip}
-                  onPress={() => {
-                    // Note: This is simplified - in real implementation you'd search for stop by name
-                    // For now, we'll skip this functionality
-                  }}
+                  onPress={() => handleDestinationSelect(destination)}
                 >
-                  <Text style={styles.destinationText}>{destination}</Text>
+                  <Text style={styles.destinationText}>{destination.name}</Text>
                 </TouchableOpacity>
               ))}
+              {!loadingDestinations && popularDestinations.length === 0 && (
+                <Text style={styles.noDestinationsText}>No destinations available</Text>
+              )}
             </View>
           </View>
         </View>
@@ -388,30 +402,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
   },
-  clearText: {
-    fontSize: 14,
-    color: '#004CFF',
-  },
-  recentSearchItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  recentSearchIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EBF2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  recentSearchText: {
-    fontSize: 14,
-    color: '#374151',
-  },
   destinationsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -428,5 +418,11 @@ const styles = StyleSheet.create({
   destinationText: {
     fontSize: 14,
     color: '#004CFF',
+  },
+  noDestinationsText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 16,
   },
 });

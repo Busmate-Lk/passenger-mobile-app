@@ -52,15 +52,20 @@ export default function BusRouteCard({ trip, onPress, showAmenities = true }: Bu
         />
         <View style={styles.cardHeaderInfo}>
           <View style={styles.routeDetailsRow}>
-            <Text style={styles.routeDetails}>
-              {trip.routeName || 'Route'} | {trip.departureStop?.name}
-            </Text>
-            <ArrowRight size={16} color="#6B7280" style={styles.arrowIcon} />
+            {/* <Text style={styles.routeDetails}> */}
+              {/* {trip.routeName || 'Route'}  */}
+              {/* {trip.routeName || 'Route'} | {trip.departureStop?.name} */}
+            {/* </Text> */}
+            {/* <ArrowRight size={16} color="#6B7280" style={styles.arrowIcon} />
             <Text style={styles.routeDetails}>
               {trip.arrivalStop?.name}
-            </Text>
+            </Text> */}
           </View>
-          <Text style={styles.operatorName}>{trip.operator?.name || 'Unknown Operator'}</Text>
+          <Text style={styles.routeDetails}>
+              {trip.departureStop?.name} - {trip.arrivalStop?.name} 
+              {/* {trip.routeName || 'Route'} | {trip.departureStop?.name} */}
+            </Text>
+          {/* <Text style={styles.operatorName}>{trip.operator?.name || 'Unknown Operator'}</Text> */}
         </View>
       </View>
 
