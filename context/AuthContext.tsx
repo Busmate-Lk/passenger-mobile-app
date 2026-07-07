@@ -126,6 +126,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     setIsLoading(true);
     
     try {
+      console.log('Login request endpoint:', `${OpenAPI.BASE}/api/auth/login`);
+
       // Use the OpenAPI generated client for login
       const authData = await AuthControllerService.login({
         email,
@@ -171,14 +173,11 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       
       setAccessToken(authData.access_token);
       setUser(userData);
-      setIsLoading(false);
       
       return { success: true };
       
     } catch (error: any) {
       console.error('Login error:', error);
-      setIsLoading(false);
-      
       // Handle API client errors
       if (error.status) {
         switch (error.status) {
@@ -195,11 +194,21 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         }
       }
       
-      if (error.message?.includes('Network') || error.message?.includes('fetch')) {
-        return { success: false, error: 'Network error. Please check your connection.' };
+      if (
+        error.message?.includes('Network') ||
+        error.message?.includes('fetch') ||
+        error.message?.includes('timed out') ||
+        error.name === 'AbortError'
+      ) {
+        return {
+          success: false,
+          error: `Cannot reach user service at ${OpenAPI.BASE}. Check that the backend is running and reachable from this phone.`,
+        };
       }
       
       return { success: false, error: 'An unexpected error occurred. Please try again.' };
+    } finally {
+      setIsLoading(false);
     }
   };
 

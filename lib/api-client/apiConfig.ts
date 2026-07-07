@@ -10,6 +10,7 @@ import { OpenAPI as TicketingOpenAPI } from './ticketing-management/core/OpenAPI
 export const initializeApiClients = () => {
   // Configure User Management API
   UserOpenAPI.BASE = ENV.API_ENDPOINTS.USER_SERVICE;
+  UserOpenAPI.TIMEOUT = ENV.API_TIMEOUT;
   UserOpenAPI.WITH_CREDENTIALS = false;
   UserOpenAPI.CREDENTIALS = 'include';
   

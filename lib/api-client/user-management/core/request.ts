@@ -202,6 +202,7 @@ export const sendRequest = async (
     onCancel: OnCancel
 ): Promise<Response> => {
     const controller = new AbortController();
+    let didTimeout = false;
 
     const request: RequestInit = {
         headers,
@@ -216,7 +217,26 @@ export const sendRequest = async (
 
     onCancel(() => controller.abort());
 
-    return await fetch(url, request);
+    const timeoutMs = config.TIMEOUT ?? 30000;
+    const timeoutId = timeoutMs > 0
+        ? setTimeout(() => {
+            didTimeout = true;
+            controller.abort();
+        }, timeoutMs)
+        : undefined;
+
+    try {
+        return await fetch(url, request);
+    } catch (error) {
+        if (didTimeout) {
+            throw new Error(`Request timed out after ${timeoutMs}ms: ${url}`);
+        }
+        throw error;
+    } finally {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+    }
 };
 
 export const getResponseHeader = (response: Response, responseHeader?: string): string | undefined => {

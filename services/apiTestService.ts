@@ -1,4 +1,7 @@
 import { AuthControllerService } from '@/lib/api-client/user-management/services/AuthControllerService';
+import { OpenAPI } from '@/lib/api-client/user-management/core/OpenAPI';
+
+const getLoginUrl = () => `${OpenAPI.BASE}/api/auth/login`;
 
 export class ApiTestService {
   /**
@@ -13,7 +16,7 @@ export class ApiTestService {
     data?: any;
   }> {
     try {
-      console.log('Testing API login with:', { email, url: 'http://107.21.189.199:8081/api/auth/login' });
+      console.log('Testing API login with:', { email, url: getLoginUrl() });
       
       const result = await AuthControllerService.login({
         email,
@@ -51,7 +54,7 @@ export class ApiTestService {
   static async testConnectivity(): Promise<boolean> {
     try {
       // Simple fetch to test if the API is reachable
-      const response = await fetch('http://107.21.189.199:8081/api/auth/login', {
+      const response = await fetch(getLoginUrl(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

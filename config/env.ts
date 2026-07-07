@@ -3,12 +3,24 @@ export const ENV = {
   // Change this to 'production' for release builds
   NODE_ENV: __DEV__ ? 'development' : 'production',
   
-  // API Base URLs - Cloud/Production endpoints
+  // API Base URLs
   API_ENDPOINTS: {
-    USER_SERVICE: 'http://107.21.189.199:8081',
-    ROUTE_SERVICE: 'http://18.140.161.237:8080', 
-    TICKETING_SERVICE: 'http://54.91.217.117:8083',
-    LOCATION_SERVICE: 'http://47.128.250.151:4000', // Add location service
+    USER_SERVICE:
+      process.env.EXPO_PUBLIC_USER_MANAGEMENT_API_URL ||
+      process.env.NEXT_PUBLIC_USER_MANAGEMENT_API_URL ||
+      (__DEV__ ? 'http://localhost:8081' : 'http://107.21.189.199:8081'),
+    ROUTE_SERVICE:
+      process.env.EXPO_PUBLIC_ROUTE_MANAGEMENT_API_URL ||
+      process.env.NEXT_PUBLIC_ROUTE_MANAGEMENT_API_URL ||
+      'http://18.140.161.237:8080',
+    TICKETING_SERVICE:
+      process.env.EXPO_PUBLIC_TICKETING_MANAGEMENT_API_URL ||
+      process.env.NEXT_PUBLIC_TICKETING_MANAGEMENT_API_URL ||
+      'http://54.91.217.117:8083',
+    LOCATION_SERVICE:
+      process.env.EXPO_PUBLIC_LOCATION_TRACKING_API_URL ||
+      process.env.NEXT_PUBLIC_LOCATION_TRACKING_API_URL ||
+      'http://47.128.250.151:4000',
   },
   
   // Local development endpoints (uncomment for local testing)
