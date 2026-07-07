@@ -19,7 +19,6 @@ import {
   Trash2, 
   Check
 } from 'lucide-react-native';
-import { StatusBar } from 'expo-status-bar';
 import AppHeader from '../../components/ui/AppHeader';
 
 export default function NotificationsInboxScreen() {
@@ -203,12 +202,13 @@ export default function NotificationsInboxScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
+      {/* Remove StatusBar component as it's now handled by AppHeader */}
       
       {/* Using the AppHeader component */}
       <AppHeader 
         title="Notifications"
         rightElement={headerRightElement}
+        statusBarStyle="light-content"
       />
 
       {/* Filters */}

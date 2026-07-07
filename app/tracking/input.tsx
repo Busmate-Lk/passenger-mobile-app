@@ -5,13 +5,13 @@ import {
   StyleSheet, 
   TouchableOpacity, 
   TextInput, 
-  SafeAreaView,
   ScrollView,
-  StatusBar,
   ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Bus, Route, Map, MapPin, Clock } from 'lucide-react-native';
+import { Bus, Route, Map, MapPin, Clock } from 'lucide-react-native';
+import AppHeader from '../../components/ui/AppHeader';
 
 interface RecentSearch {
   id: string;
@@ -120,19 +120,8 @@ export default function TrackInputScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Track Bus</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <AppHeader title="Track Bus" />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.sectionContainer}>
@@ -291,25 +280,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F4F9',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backgroundColor: '#004CFF',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   content: {
     flex: 1,

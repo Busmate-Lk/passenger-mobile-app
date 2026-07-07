@@ -1,42 +1,74 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, QrCode, Download, Share, Calendar, Clock, MapPin, User, Phone, MessageCircle, TriangleAlert as AlertTriangle } from 'lucide-react-native';
+import { QrCode, Download, Share, Calendar, Clock, MapPin, User, Phone, MessageCircle, TriangleAlert as AlertTriangle } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
+import { useAuth } from '@/context/AuthContext';
+import AppHeader from '@/components/ui/AppHeader';
+import { TicketControllerService } from '@/lib/api-client/ticketing-management/services/TicketControllerService';
+import { PassengerApIsService } from '@/lib/api-client/route-management/services/PassengerApIsService';
+import type { ConductorLogTicketDTO } from '@/lib/api-client/ticketing-management/models/ConductorLogTicketDTO';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
+import type { PassengerStopResponse } from '@/lib/api-client/route-management/models/PassengerStopResponse';
 
 export default function TicketDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
   const [selectedTab, setSelectedTab] = useState('details');
+  const [ticket, setTicket] = useState<ConductorLogTicketDTO | null>(null);
+  const [startStop, setStartStop] = useState<PassengerStopResponse | null>(null);
+  const [endStop, setEndStop] = useState<PassengerStopResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
-  // Mock ticket data - in real app, fetch based on id
-  const ticketData = {
-    id: id as string,
-    bookingId: 'SB2024011501',
-    route: { from: 'Colombo Fort', to: 'Kandy' },
-    date: 'Today, Jan 15, 2024',
-    time: '08:30 AM',
-    arrivalTime: '11:00 AM',
-    duration: '2h 30m',
-    operator: 'SLTB Express',
-    routeNumber: '001',
-    seatNumber: 'A12',
-    price: 250,
-    status: 'upcoming',
-    busImage: 'https://images.pexels.com/photos/1545743/pexels-photo-1545743.jpeg?auto=compress&cs=tinysrgb&w=800',
-    passenger: {
-      name: 'John Doe',
-      phone: '+94771234567',
-      email: 'john@example.com'
-    },
-    driver: {
-      name: 'Mahinda Silva',
-      phone: '+94771234567',
-      rating: 4.8
-    },
-    qrCode: 'QR123456789',
-    cancellationPolicy: 'Free cancellation up to 2 hours before departure'
-  };
+  useEffect(() => {
+    const fetchTicketDetails = async () => {
+      if (!id) {
+        setError('Ticket ID not provided');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch ticket details
+        const ticketData = await TicketControllerService.getTicketById(Number(id));
+        setTicket(ticketData);
+
+        // Fetch stop details if location IDs are available
+        if (ticketData.startLocationId) {
+          try {
+            const startStopData = await PassengerApIsService.getStopDetails(ticketData.startLocationId);
+            setStartStop(startStopData);
+          } catch (err) {
+            console.warn('Failed to fetch start stop details:', err);
+          }
+        }
+
+        if (ticketData.endLocationId) {
+          try {
+            const endStopData = await PassengerApIsService.getStopDetails(ticketData.endLocationId);
+            setEndStop(endStopData);
+          } catch (err) {
+            console.warn('Failed to fetch end stop details:', err);
+          }
+        }
+
+      } catch (err) {
+        console.error('Error fetching ticket details:', err);
+        setError('Failed to load ticket details. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTicketDetails();
+  }, [id]);
 
   const handleCancelTicket = () => {
     Alert.alert(
@@ -55,46 +87,114 @@ export default function TicketDetailScreen() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'upcoming': return '#004CFF';
-      case 'completed': return '#1DD724';
-      case 'cancelled': return '#FF3831';
+      case 'COMPLETED': return '#1DD724';
+      case 'PENDING': return '#004CFF';
+      case 'CANCELLED': return '#FF3831';
       default: return '#6B7280';
     }
   };
 
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch {
+      return 'Invalid Date';
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return 'Invalid Time';
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={safeAreaStyle}>
+        <AppHeader title="Ticket Details" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#004CFF" />
+          <Text style={styles.loadingText}>Loading ticket details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error || !ticket) {
+    return (
+      <SafeAreaView style={safeAreaStyle}>
+        <AppHeader title="Ticket Details" />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Error Loading Ticket</Text>
+          <Text style={styles.errorText}>{error || 'Ticket not found'}</Text>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.retryButton}
+          >
+            <Text style={styles.retryButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  } {
+    Alert.alert(
+      'Cancel Ticket',
+      'Are you sure you want to cancel this ticket? This action cannot be undone.',
+      [
+        { text: 'No', style: 'cancel' },
+        { 
+          text: 'Yes, Cancel', 
+          style: 'destructive',
+          onPress: () => router.push('/tickets/cancel')
+        }
+      ]
+    );
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Ticket Details</Text>
-        <TouchableOpacity
-          onPress={() => router.push(`/tickets/${id}/qr`)}
-          style={styles.qrButton}
-        >
-          <QrCode size={20} color="#004CFF" />
-        </TouchableOpacity>
-      </View>
+      <AppHeader 
+        title="Ticket Details"
+        rightElement={
+          <TouchableOpacity
+            onPress={() => router.push(`/tickets/${ticket.ticketId}/qr`)}
+            style={styles.qrButton}
+          >
+            <QrCode size={20} color="#004CFF" />
+          </TouchableOpacity>
+        }
+      />
 
       <ScrollView style={styles.content}>
         {/* Ticket Card */}
         <View style={styles.ticketCard}>
           <View style={styles.ticketHeader}>
             <View style={styles.ticketHeaderLeft}>
-              <Image source={{ uri: ticketData.busImage }} style={styles.busImage} />
+              <View style={styles.ticketIcon}>
+                <MapPin size={24} color="#004CFF" />
+              </View>
               <View style={styles.ticketInfo}>
-                <Text style={styles.operatorName}>{ticketData.operator}</Text>
-                <Text style={styles.routeNumber}>Route {ticketData.routeNumber}</Text>
+                <Text style={styles.operatorName}>Ticket #{ticket.ticketId}</Text>
+                <Text style={styles.routeNumber}>Seat {ticket.seatNumber || 'N/A'}</Text>
               </View>
             </View>
-            <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(ticketData.status)}15` }]}>
-              <Text style={[styles.statusText, { color: getStatusColor(ticketData.status) }]}>
-                {ticketData.status.charAt(0).toUpperCase() + ticketData.status.slice(1)}
+            <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(ticket.paymentStatus || 'PENDING')}15` }]}>
+              <Text style={[styles.statusText, { color: getStatusColor(ticket.paymentStatus || 'PENDING') }]}>
+                {ticket.paymentStatus || 'PENDING'}
               </Text>
             </View>
           </View>
@@ -102,24 +202,30 @@ export default function TicketDetailScreen() {
           <View style={styles.routeContainer}>
             <View style={styles.routePoint}>
               <View style={[styles.routeDot, { backgroundColor: '#004CFF' }]} />
-              <Text style={styles.routeLocation}>{ticketData.route.from}</Text>
-              <Text style={styles.routeTime}>{ticketData.time}</Text>
+              <Text style={styles.routeLocation}>
+                {startStop?.name || `From: ${ticket.startLocationId || 'Unknown'}`}
+              </Text>
+              <Text style={styles.routeTime}>{formatTime(ticket.issuedAt || '')}</Text>
             </View>
             <View style={styles.routeLine}>
               <View style={styles.line} />
-              <Text style={styles.duration}>{ticketData.duration}</Text>
+              <Text style={styles.duration}>
+                {ticket.passengerCount || 1} passenger{(ticket.passengerCount || 1) > 1 ? 's' : ''}
+              </Text>
               <View style={styles.line} />
             </View>
             <View style={styles.routePoint}>
               <View style={[styles.routeDot, { backgroundColor: '#FF3831' }]} />
-              <Text style={styles.routeLocation}>{ticketData.route.to}</Text>
-              <Text style={styles.routeTime}>{ticketData.arrivalTime}</Text>
+              <Text style={styles.routeLocation}>
+                {endStop?.name || `To: ${ticket.endLocationId || 'Unknown'}`}
+              </Text>
+              <Text style={styles.routeTime}>-</Text>
             </View>
           </View>
 
           <View style={styles.ticketFooter}>
-            <Text style={styles.bookingId}>#{ticketData.bookingId}</Text>
-            <Text style={styles.price}>LKR {ticketData.price}</Text>
+            <Text style={styles.bookingId}>#{ticket.ticketId}</Text>
+            <Text style={styles.price}>LKR {ticket.fareAmount || 0}</Text>
           </View>
         </View>
 
@@ -159,22 +265,57 @@ export default function TicketDetailScreen() {
               <View style={styles.detailItem}>
                 <Calendar size={20} color="#6B7280" />
                 <View style={styles.detailInfo}>
-                  <Text style={styles.detailLabel}>Date</Text>
-                  <Text style={styles.detailValue}>{ticketData.date}</Text>
+                  <Text style={styles.detailLabel}>Date Issued</Text>
+                  <Text style={styles.detailValue}>{formatDate(ticket.issuedAt || '')}</Text>
                 </View>
               </View>
               <View style={styles.detailItem}>
                 <Clock size={20} color="#6B7280" />
                 <View style={styles.detailInfo}>
-                  <Text style={styles.detailLabel}>Departure Time</Text>
-                  <Text style={styles.detailValue}>{ticketData.time}</Text>
+                  <Text style={styles.detailLabel}>Time Issued</Text>
+                  <Text style={styles.detailValue}>{formatTime(ticket.issuedAt || '')}</Text>
                 </View>
               </View>
               <View style={styles.detailItem}>
                 <MapPin size={20} color="#6B7280" />
                 <View style={styles.detailInfo}>
                   <Text style={styles.detailLabel}>Seat Number</Text>
-                  <Text style={styles.detailValue}>{ticketData.seatNumber}</Text>
+                  <Text style={styles.detailValue}>{ticket.seatNumber || 'N/A'}</Text>
+                </View>
+              </View>
+              <View style={styles.detailItem}>
+                <User size={20} color="#6B7280" />
+                <View style={styles.detailInfo}>
+                  <Text style={styles.detailLabel}>Passenger Count</Text>
+                  <Text style={styles.detailValue}>{ticket.passengerCount || 1}</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.detailsSection}>
+              <Text style={styles.sectionTitle}>Route Information</Text>
+              <View style={styles.detailItem}>
+                <MapPin size={20} color="#6B7280" />
+                <View style={styles.detailInfo}>
+                  <Text style={styles.detailLabel}>Start Location</Text>
+                  <Text style={styles.detailValue}>
+                    {startStop?.name || ticket.startLocationId || 'Unknown'}
+                  </Text>
+                  {startStop?.city && (
+                    <Text style={styles.detailSubValue}>{startStop.city}</Text>
+                  )}
+                </View>
+              </View>
+              <View style={styles.detailItem}>
+                <MapPin size={20} color="#6B7280" />
+                <View style={styles.detailInfo}>
+                  <Text style={styles.detailLabel}>End Location</Text>
+                  <Text style={styles.detailValue}>
+                    {endStop?.name || ticket.endLocationId || 'Unknown'}
+                  </Text>
+                  {endStop?.city && (
+                    <Text style={styles.detailSubValue}>{endStop.city}</Text>
+                  )}
                 </View>
               </View>
             </View>
@@ -184,10 +325,9 @@ export default function TicketDetailScreen() {
               <View style={styles.infoCard}>
                 <AlertTriangle size={16} color="#F59E0B" />
                 <Text style={styles.infoText}>
-                  Please arrive at the departure point 15 minutes before scheduled time
+                  Please keep this ticket for verification during your journey
                 </Text>
               </View>
-              <Text style={styles.policyText}>{ticketData.cancellationPolicy}</Text>
             </View>
           </View>
         )}
@@ -201,9 +341,10 @@ export default function TicketDetailScreen() {
                   <User size={24} color="#004CFF" />
                 </View>
                 <View style={styles.passengerInfo}>
-                  <Text style={styles.passengerName}>{ticketData.passenger.name}</Text>
-                  <Text style={styles.passengerDetail}>{ticketData.passenger.phone}</Text>
-                  <Text style={styles.passengerDetail}>{ticketData.passenger.email}</Text>
+                  <Text style={styles.passengerName}>{user?.name || 'Unknown Passenger'}</Text>
+                  <Text style={styles.passengerDetail}>{user?.phone || 'No phone number'}</Text>
+                  <Text style={styles.passengerDetail}>{user?.email || 'No email'}</Text>
+                  <Text style={styles.passengerDetail}>ID: {ticket.passengerId}</Text>
                 </View>
               </View>
             </View>
@@ -213,22 +354,15 @@ export default function TicketDetailScreen() {
         {selectedTab === 'driver' && (
           <View style={styles.tabContent}>
             <View style={styles.detailsSection}>
-              <Text style={styles.sectionTitle}>Driver Information</Text>
+              <Text style={styles.sectionTitle}>Service Information</Text>
               <View style={styles.driverCard}>
                 <View style={styles.driverAvatar}>
-                  <Text style={styles.driverInitial}>M</Text>
+                  <Text style={styles.driverInitial}>B</Text>
                 </View>
                 <View style={styles.driverInfo}>
-                  <Text style={styles.driverName}>{ticketData.driver.name}</Text>
-                  <Text style={styles.driverRating}>Rating: {ticketData.driver.rating} ⭐</Text>
-                </View>
-                <View style={styles.driverActions}>
-                  <TouchableOpacity style={styles.contactButton}>
-                    <Phone size={18} color="#004CFF" />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.contactButton}>
-                    <MessageCircle size={18} color="#004CFF" />
-                  </TouchableOpacity>
+                  <Text style={styles.driverName}>Bus Service</Text>
+                  <Text style={styles.driverRating}>Ticket ID: {ticket.ticketId}</Text>
+                  <Text style={styles.driverRating}>Payment: {ticket.paymentStatus}</Text>
                 </View>
               </View>
             </View>
@@ -247,8 +381,8 @@ export default function TicketDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Cancel Button */}
-        {ticketData.status === 'upcoming' && (
+        {/* Cancel Button - Only show for pending tickets */}
+        {ticket.paymentStatus === 'PENDING' && (
           <TouchableOpacity
             onPress={handleCancelTicket}
             style={styles.cancelButton}
@@ -265,27 +399,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F4F9',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backgroundColor: '#004CFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#003CC7',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   qrButton: {
     width: 40,
@@ -326,6 +439,15 @@ const styles = StyleSheet.create({
     width: 60,
     height: 40,
     borderRadius: 8,
+    marginRight: 12,
+  },
+  ticketIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#EBF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 12,
   },
   ticketInfo: {
@@ -597,5 +719,48 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#DC2626',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 16,
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 80,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#DC2626',
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  retryButton: {
+    backgroundColor: '#004CFF',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  detailSubValue: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 2,
   },
 });

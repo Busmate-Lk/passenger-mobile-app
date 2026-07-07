@@ -1,23 +1,30 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, CreditCard, Wallet, Plus, RefreshCw, Check } from 'lucide-react-native';
+import { CreditCard, Wallet, Plus, RefreshCw, Check } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
+import { useAuth } from '@/context/AuthContext';
+import MockWalletService from '@/services/mockWalletService';
+import AppHeader from '@/components/ui/AppHeader';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function TopupScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [amount, setAmount] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const safeAreaStyle = useSafeAreaContainerStyles();
+
+  // Get wallet data and payment methods from service
+  const walletData = user?.email ? MockWalletService.getWalletByEmail(user.email) : null;
+  const paymentMethods = user?.email ? MockWalletService.getPaymentMethods(user.email) : [];
+  const balance = walletData?.balance || 0;
+  const activePromotions = MockWalletService.getActivePromotions();
 
   // Predefined top-up amounts
   const quickAmounts = [500, 1000, 2000, 5000];
-
-  // Payment method options
-  const paymentMethods = [
-    { id: 'credit_card', title: 'Credit / Debit Card', icon: <CreditCard size={24} color="#374151" /> },
-    { id: 'bank_transfer', title: 'Online Banking', icon: <Wallet size={24} color="#374151" /> },
-  ];
 
   // Handle custom amount input
   const handleAmountChange = (text) => {
@@ -36,25 +43,61 @@ export default function TopupScreen() {
     setSelectedPaymentMethod(id);
   };
 
+  // Calculate bonus amount for promotions
+  const calculateBonus = () => {
+    const numericAmount = parseInt(amount);
+    if (!numericAmount) return 0;
+
+    const weekendPromo = activePromotions.find(promo => 
+      promo.id === 'promo-001' && 
+      promo.isActive && 
+      numericAmount >= promo.minAmount
+    );
+
+    if (weekendPromo) {
+      const today = new Date();
+      const dayOfWeek = today.getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday or Saturday
+        return (numericAmount * weekendPromo.bonusPercentage) / 100;
+      }
+    }
+    return 0;
+  };
+
   // Process top-up request
   const handleTopup = async () => {
     if (!validateForm()) return;
     
     setIsProcessing(true);
     
-    // Simulate API call
+    // Simulate API call using service
+    const success = MockWalletService.simulateTopup(
+      user?.email || '', 
+      parseInt(amount), 
+      selectedPaymentMethod
+    );
+    
     setTimeout(() => {
       setIsProcessing(false);
-      Alert.alert(
-        "Top-up Successful",
-        `LKR ${amount} has been added to your wallet.`,
-        [
-          { 
-            text: "OK", 
-            onPress: () => router.back() 
-          }
-        ]
-      );
+      if (success) {
+        const bonus = calculateBonus();
+        const totalAmount = parseInt(amount) + bonus;
+        
+        Alert.alert(
+          "Top-up Successful",
+          bonus > 0 
+            ? `LKR ${amount} + LKR ${bonus} bonus has been added to your wallet. Total: LKR ${totalAmount}`
+            : `LKR ${amount} has been added to your wallet.`,
+          [
+            { 
+              text: "OK", 
+              onPress: () => router.back() 
+            }
+          ]
+        );
+      } else {
+        Alert.alert("Error", "Top-up failed. Please try again.");
+      }
     }, 2000);
   };
 
@@ -72,6 +115,11 @@ export default function TopupScreen() {
       return false;
     }
     
+    if (numericAmount > 50000) {
+      Alert.alert("Error", "Maximum top-up amount is LKR 50,000");
+      return false;
+    }
+    
     if (!selectedPaymentMethod) {
       Alert.alert("Error", "Please select a payment method");
       return false;
@@ -80,25 +128,49 @@ export default function TopupScreen() {
     return true;
   };
 
+  // Get payment method icon
+  const getPaymentMethodIcon = (method) => {
+    if (method.type === 'card') {
+      return <CreditCard size={24} color="#374151" />;
+    } else {
+      return <Wallet size={24} color="#374151" />;
+    }
+  };
+
+  // Get payment method display name
+  const getPaymentMethodDisplay = (method) => {
+    if (method.type === 'card') {
+      return `${method.name} ${method.cardNumber}`;
+    } else {
+      return `${method.bankName} ${method.accountNumber}`;
+    }
+  };
+
+  const bonus = calculateBonus();
+  const finalAmount = parseInt(amount || '0') + bonus;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Top Up Wallet</Text>
-      </View>
+      <AppHeader title="Top Up Wallet" />
 
       <ScrollView style={styles.content}>
         {/* Current Balance */}
         <View style={styles.balanceContainer}>
           <Text style={styles.balanceLabel}>Current Balance</Text>
-          <Text style={styles.balanceAmount}>LKR 1,250.00</Text>
+          <Text style={styles.balanceAmount}>LKR {balance.toLocaleString()}</Text>
         </View>
+
+        {/* Weekend Promotion Banner */}
+        {bonus > 0 && (
+          <View style={styles.promotionBanner}>
+            <Text style={styles.promotionTitle}>🎉 Weekend Bonus Active!</Text>
+            <Text style={styles.promotionText}>
+              Get 5% bonus on top-ups above LKR 1,000 during weekends
+            </Text>
+            <Text style={styles.bonusAmount}>Bonus: +LKR {bonus}</Text>
+          </View>
+        )}
 
         {/* Amount Entry */}
         <View style={styles.amountContainer}>
@@ -146,55 +218,86 @@ export default function TopupScreen() {
         <View style={styles.paymentMethodContainer}>
           <Text style={styles.sectionTitle}>Payment Method</Text>
           
-          <View style={styles.paymentOptions}>
-            {paymentMethods.map((method) => (
-              <TouchableOpacity
-                key={method.id}
-                onPress={() => handleSelectPaymentMethod(method.id)}
-                style={[
-                  styles.paymentMethodCard,
-                  selectedPaymentMethod === method.id && styles.paymentMethodCardSelected
-                ]}
-              >
-                <View style={styles.paymentMethodIcon}>
-                  {method.icon}
-                </View>
-                <Text style={styles.paymentMethodTitle}>{method.title}</Text>
-                <View style={[
-                  styles.radioButton,
-                  selectedPaymentMethod === method.id && styles.radioButtonSelected
-                ]}>
-                  {selectedPaymentMethod === method.id && (
-                    <View style={styles.radioButtonInner} />
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {paymentMethods.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateTitle}>No payment methods found</Text>
+              <Text style={styles.emptyStateText}>
+                Please add a payment method in your wallet settings
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.paymentOptions}>
+              {paymentMethods.map((method) => (
+                <TouchableOpacity
+                  key={method.id}
+                  onPress={() => handleSelectPaymentMethod(method.id)}
+                  style={[
+                    styles.paymentMethodCard,
+                    selectedPaymentMethod === method.id && styles.paymentMethodCardSelected
+                  ]}
+                >
+                  <View style={styles.paymentMethodIcon}>
+                    {getPaymentMethodIcon(method)}
+                  </View>
+                  <View style={styles.paymentMethodInfo}>
+                    <Text style={styles.paymentMethodTitle}>{method.name}</Text>
+                    <Text style={styles.paymentMethodSubtitle}>
+                      {getPaymentMethodDisplay(method)}
+                    </Text>
+                    {method.isDefault && (
+                      <Text style={styles.defaultBadge}>Default</Text>
+                    )}
+                  </View>
+                  <View style={[
+                    styles.radioButton,
+                    selectedPaymentMethod === method.id && styles.radioButtonSelected
+                  ]}>
+                    {selectedPaymentMethod === method.id && (
+                      <View style={styles.radioButtonInner} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
-        {/* Transaction Fee */}
-        <View style={styles.feeContainer}>
-          <Text style={styles.feeTitle}>Transaction Details</Text>
+        {/* Transaction Summary */}
+        <View style={styles.summaryContainer}>
+          <Text style={styles.summaryTitle}>Transaction Summary</Text>
           
-          <View style={styles.feeRow}>
-            <Text style={styles.feeLabel}>Amount</Text>
-            <Text style={styles.feeValue}>
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Top-up Amount</Text>
+            <Text style={styles.summaryValue}>
               {amount ? `LKR ${parseInt(amount).toLocaleString()}` : 'LKR 0'}
             </Text>
           </View>
           
-          <View style={styles.feeRow}>
-            <Text style={styles.feeLabel}>Transaction Fee</Text>
-            <Text style={styles.feeValue}>LKR 0</Text>
+          {bonus > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Weekend Bonus (5%)</Text>
+              <Text style={styles.bonusValue}>+LKR {bonus}</Text>
+            </View>
+          )}
+          
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Transaction Fee</Text>
+            <Text style={styles.summaryValue}>LKR 0</Text>
           </View>
           
           <View style={styles.divider} />
           
-          <View style={styles.feeRow}>
-            <Text style={styles.totalLabel}>Total</Text>
+          <View style={styles.summaryRow}>
+            <Text style={styles.totalLabel}>Total Amount</Text>
             <Text style={styles.totalValue}>
-              {amount ? `LKR ${parseInt(amount).toLocaleString()}` : 'LKR 0'}
+              LKR {finalAmount.toLocaleString()}
+            </Text>
+          </View>
+          
+          <View style={styles.summaryRow}>
+            <Text style={styles.totalLabel}>New Balance</Text>
+            <Text style={styles.newBalanceValue}>
+              LKR {(balance + finalAmount).toLocaleString()}
             </Text>
           </View>
         </View>
@@ -220,10 +323,10 @@ export default function TopupScreen() {
       <View style={styles.topupContainer}>
         <TouchableOpacity
           onPress={handleTopup}
-          disabled={isProcessing || !amount || !selectedPaymentMethod}
+          disabled={isProcessing || !amount || !selectedPaymentMethod || paymentMethods.length === 0}
           style={[
             styles.topupButton,
-            (isProcessing || !amount || !selectedPaymentMethod) && styles.topupButtonDisabled
+            (isProcessing || !amount || !selectedPaymentMethod || paymentMethods.length === 0) && styles.topupButtonDisabled
           ]}
         >
           {isProcessing ? (
@@ -234,7 +337,9 @@ export default function TopupScreen() {
           ) : (
             <>
               <Plus size={20} color="white" />
-              <Text style={styles.topupButtonText}>Top Up Now</Text>
+              <Text style={styles.topupButtonText}>
+                Top Up {amount ? `LKR ${finalAmount.toLocaleString()}` : 'Now'}
+              </Text>
             </>
           )}
         </TouchableOpacity>
@@ -247,27 +352,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F4F9',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backgroundColor: '#004CFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#003CC7',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   content: {
     flex: 1,
@@ -297,6 +381,30 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  promotionBanner: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F59E0B',
+  },
+  promotionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#92400E',
+    marginBottom: 4,
+  },
+  promotionText: {
+    fontSize: 14,
+    color: '#92400E',
+    marginBottom: 8,
+  },
+  bonusAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1DD724',
   },
   amountContainer: {
     backgroundColor: 'white',
@@ -383,6 +491,22 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
   paymentOptions: {
     gap: 12,
   },
@@ -408,11 +532,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  paymentMethodTitle: {
+  paymentMethodInfo: {
     flex: 1,
+  },
+  paymentMethodTitle: {
     fontSize: 16,
     fontWeight: '500',
     color: '#374151',
+    marginBottom: 2,
+  },
+  paymentMethodSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  defaultBadge: {
+    fontSize: 12,
+    color: '#004CFF',
+    fontWeight: '500',
+    marginTop: 2,
   },
   radioButton: {
     width: 20,
@@ -432,7 +569,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: '#004CFF',
   },
-  feeContainer: {
+  summaryContainer: {
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 20,
@@ -443,25 +580,30 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 2,
   },
-  feeTitle: {
+  summaryTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
     marginBottom: 16,
   },
-  feeRow: {
+  summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-  feeLabel: {
+  summaryLabel: {
     fontSize: 14,
     color: '#6B7280',
   },
-  feeValue: {
+  summaryValue: {
     fontSize: 14,
     fontWeight: '500',
     color: '#111827',
+  },
+  bonusValue: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1DD724',
   },
   divider: {
     height: 1,
@@ -477,6 +619,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#004CFF',
+  },
+  newBalanceValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1DD724',
   },
   notesContainer: {
     backgroundColor: 'white',

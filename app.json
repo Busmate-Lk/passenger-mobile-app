@@ -4,12 +4,13 @@
     "slug": "busmate-passenger-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/busmate-icon-inverted.png",
+    "icon": "./assets/images/busmate_lk_icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.kavindadimuthu.busmatepassengerapp"
     },
     "web": {
       "bundler": "metro",
@@ -19,7 +20,8 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      "./plugins/withNetworkSecurityConfig"
     ],
     "experiments": {
       "typedRoutes": true
@@ -32,22 +34,17 @@
     },
     "owner": "kavindadimuthu",
     "splash": {
-      "image": "./assets/images/busmate-splash.png",
+      "image": "./assets/images/busmate_splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#004CFF"
     },
     "android": {
       "package": "com.kavindadimuthu.busmatepassengerapp",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/busmate-round-icon.png",
+        "foregroundImage": "./assets/images/busmate_lk_icon.png",
         "backgroundColor": "#004CFF"
       },
-      "softwareKeyboardLayoutMode": "pan",
-      "statusBar": {
-        "backgroundColor": "#004CFF",
-        "barStyle": "light-content",
-        "translucent": false
-      }
+      "softwareKeyboardLayoutMode": "pan"
     }
   }
 }

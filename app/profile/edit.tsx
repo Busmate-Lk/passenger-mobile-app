@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Image, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Image, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
   Camera, 
@@ -13,39 +14,117 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import AppHeader from '@/components/ui/AppHeader';
+import { PassengerControllerService, PassengerDTO, PassengerUpdateDTO } from '@/lib/api-client/user-management';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function EditProfileScreen() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const { user } = useAuth();
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const { user, updateUserProfile } = useAuth();
+  const [profileData, setProfileData] = useState<PassengerDTO | null>(null);
+  const safeAreaStyle = useSafeAreaContainerStyles();
   
-  // Initialize form with user data or defaults
+  // Initialize form with empty defaults - will be populated from API
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-    phone: user?.phone || '',
-    dob: user?.dob || '',
-    address: user?.address || '',
-    city: user?.city || '',
-    profileImage: user?.profileImage || 'https://randomuser.me/api/portraits/men/32.jpg',
+    fullName: '',
+    username: '',
+    phoneNumber: '',
+    notification_preferences: '',
   });
 
-  const handleChange = (field, value) => {
+  // Fetch current profile data
+  const fetchProfileData = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setIsLoadingProfile(true);
+      const response = await PassengerControllerService.getPassengerById(user.id);
+      setProfileData(response);
+      
+      // Populate form with API data
+      setFormData({
+        fullName: response.fullName || '',
+        username: response.username || '',
+        phoneNumber: '', // phoneNumber is not returned by getPassengerById, will be handled in update
+        notification_preferences: response.notification_preferences || '',
+      });
+    } catch (error: any) {
+      console.error('Error fetching profile data:', error);
+      Alert.alert(
+        'Error',
+        'Failed to load profile information. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfileData();
+  }, [user?.id]);
+
+  const handleChange = (field: keyof typeof formData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = () => {
-    setIsLoading(true);
-    
-    // Simulating API call
-    setTimeout(() => {
-      setIsLoading(false);
+  const handleSave = async () => {
+    if (!user?.id) {
+      Alert.alert('Error', 'User ID not found. Please try again.');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      
+      // Prepare update data according to PassengerUpdateDTO
+      const updateData: PassengerUpdateDTO = {
+        fullName: formData.fullName.trim() || undefined,
+        phoneNumber: formData.phoneNumber.trim() || undefined,
+        username: formData.username.trim() || undefined,
+        notification_preferences: formData.notification_preferences.trim() || undefined,
+      };
+
+      // Remove empty fields
+      Object.keys(updateData).forEach(key => {
+        if (updateData[key as keyof PassengerUpdateDTO] === undefined || updateData[key as keyof PassengerUpdateDTO] === '') {
+          delete updateData[key as keyof PassengerUpdateDTO];
+        }
+      });
+
+      // Call the API
+      const response = await PassengerControllerService.updatePassenger(user.id, updateData);
+      
+      // Update the user profile in AuthContext with the updated data
+      await updateUserProfile({
+        name: updateData.fullName || user.name,
+        phone: updateData.phoneNumber || user.phone,
+        // Note: email and other fields are not updated as they're not part of the update API
+      });
+      
       Alert.alert(
         "Profile Updated",
         "Your profile has been updated successfully.",
         [{ text: "OK", onPress: () => router.back() }]
       );
-    }, 1500);
+      
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      let errorMessage = 'Failed to update profile. Please try again.';
+      
+      if (error.status === 400) {
+        errorMessage = 'Invalid profile data. Please check your inputs.';
+      } else if (error.status === 404) {
+        errorMessage = 'Profile not found. Please contact support.';
+      } else if (error.status === 401) {
+        errorMessage = 'You are not authorized to update this profile.';
+      }
+      
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChangePhoto = () => {
@@ -60,37 +139,26 @@ export default function EditProfileScreen() {
     );
   };
 
-  // Add a function to map image paths to require statements
+  // Use placeholder image instead of problematic asset images
   const getProfileImage = (imagePath: string | undefined) => {
-    if (!imagePath) return require('@/assets/users/kavinda.png');
-    
-    // Map each possible image path to its require statement
-    switch (imagePath) {
-      case '/assets/users/kavinda.png':
-      case '@/assets/users/kavinda.png':
-        return require('@/assets/users/kavinda.png');
-      case '/assets/users/manusha.png':
-      case '@/assets/users/manusha.png':
-        return require('@/assets/users/manusha.png');
-      case '/assets/users/nadun.png':
-      case '@/assets/users/nadun.png':
-        return require('@/assets/users/nadun.png');
-      case '/assets/users/nethmi.png':
-      case '@/assets/users/nethmi.png':
-        return require('@/assets/users/nethmi.png');
-      case '/assets/users/chamudi.png':
-      case '@/assets/users/chamudi.png':
-        return require('@/assets/users/chamudi.png');
-      case '/assets/users/ishan.png':
-      case '@/assets/users/ishan.png':
-        return require('@/assets/users/ishan.png');
-      default:
-        return require('@/assets/users/kavinda.png');
-    }
+    return { uri: 'https://iamkavinda.vercel.app/assets/profile-photo-CCXUFtA8.jpeg' };
   };
 
+  // Show loading state while fetching profile data
+  if (isLoadingProfile) {
+    return (
+      <SafeAreaView style={safeAreaStyle}>
+        <AppHeader title="Edit Profile" />
+        <View style={[styles.content, styles.centered]}>
+          <ActivityIndicator size="large" color="#004CFF" />
+          <Text style={styles.loadingText}>Loading profile data...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       <AppHeader title="Edit Profile" />
 
       <ScrollView style={styles.content}>
@@ -118,22 +186,21 @@ export default function EditProfileScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="Enter your full name"
-                value={formData.name}
-                onChangeText={(text) => handleChange('name', text)}
+                value={formData.fullName}
+                onChangeText={(text) => handleChange('fullName', text)}
               />
             </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Email Address</Text>
+            <Text style={styles.inputLabel}>Username</Text>
             <View style={styles.inputContainer}>
-              <Mail size={20} color="#6B7280" style={styles.inputIcon} />
+              <User size={20} color="#6B7280" style={styles.inputIcon} />
               <TextInput
                 style={styles.textInput}
-                placeholder="Enter your email address"
-                value={formData.email}
-                onChangeText={(text) => handleChange('email', text)}
-                keyboardType="email-address"
+                placeholder="Enter your username"
+                value={formData.username}
+                onChangeText={(text) => handleChange('username', text)}
                 autoCapitalize="none"
               />
             </View>
@@ -146,49 +213,23 @@ export default function EditProfileScreen() {
               <TextInput
                 style={styles.textInput}
                 placeholder="Enter your phone number"
-                value={formData.phone}
-                onChangeText={(text) => handleChange('phone', text)}
+                value={formData.phoneNumber}
+                onChangeText={(text) => handleChange('phoneNumber', text)}
                 keyboardType="phone-pad"
               />
             </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Date of Birth</Text>
+            <Text style={styles.inputLabel}>Notification Preferences</Text>
             <View style={styles.inputContainer}>
-              <Calendar size={20} color="#6B7280" style={styles.inputIcon} />
+              <Mail size={20} color="#6B7280" style={styles.inputIcon} />
               <TextInput
                 style={styles.textInput}
-                placeholder="DD/MM/YYYY"
-                value={formData.dob}
-                onChangeText={(text) => handleChange('dob', text)}
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Address</Text>
-            <View style={styles.inputContainer}>
-              <MapPin size={20} color="#6B7280" style={styles.inputIcon} />
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter your address"
-                value={formData.address}
-                onChangeText={(text) => handleChange('address', text)}
+                placeholder="Enter your notification preferences"
+                value={formData.notification_preferences}
+                onChangeText={(text) => handleChange('notification_preferences', text)}
                 multiline
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>City</Text>
-            <View style={styles.inputContainer}>
-              <MapPin size={20} color="#6B7280" style={styles.inputIcon} />
-              <TextInput
-                style={styles.textInput}
-                placeholder="Enter your city"
-                value={formData.city}
-                onChangeText={(text) => handleChange('city', text)}
               />
             </View>
           </View>
@@ -347,5 +388,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  }
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 12,
+  },
 });

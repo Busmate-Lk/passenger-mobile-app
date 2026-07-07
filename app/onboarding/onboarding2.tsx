@@ -1,51 +1,109 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { MapPin, ArrowRight } from 'lucide-react-native';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
+import { ArrowRight } from 'lucide-react-native';
+
+const ArrowRightIcon = ({ size = 24, color = "white" }) => (
+  <Text style={{ fontSize: size, color }}>→</Text>
+);
 
 export default function Onboarding2Screen() {
   const router = useRouter();
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
-      <View className="flex-1 px-6 py-8">
-        <View className="items-end mb-8">
-          <TouchableOpacity
-            onPress={() => router.push('/auth/login')}
-            className="px-4 py-2"
-          >
-            <Text className="text-gray-500 text-base">Skip</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View className="flex-1 justify-center items-center">
-          <View className="w-32 h-32 bg-success/10 rounded-full items-center justify-center mb-12">
-            <Text className="text-6xl">🚌</Text>
+    <>
+      <StatusBar backgroundColor="#004CFF" barStyle="light-content" />
+      <SafeAreaView style={safeAreaStyle}>
+        <View style={{ flex: 1, paddingHorizontal: 24, paddingVertical: 32 }}>
+          {/* Skip Button */}
+          <View style={{ alignItems: 'flex-end', marginBottom: 32 }}>
+            <TouchableOpacity
+              onPress={() => router.push('/auth/login')}
+              style={{ paddingHorizontal: 16, paddingVertical: 8 }}
+            >
+              <Text style={{ color: '#6B7280', fontSize: 16 }}>Skip</Text>
+            </TouchableOpacity>
           </View>
 
-          <Text className="text-3xl font-bold text-gray-900 text-center mb-6">
-            Track Buses Live
-          </Text>
-          <Text className="text-lg text-gray-600 text-center leading-relaxed px-4">
-            Get real-time location updates and arrival predictions for your buses
-          </Text>
-        </View>
+          {/* Main Content */}
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            {/* Icon */}
+            <View style={{
+              width: 128,
+              height: 128,
+              backgroundColor: 'rgba(34, 197, 94, 0.1)',
+              borderRadius: 64,
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 48
+            }}>
+              <Text style={{ fontSize: 64 }}>🚌</Text>
+            </View>
 
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row space-x-2">
-            <View className="w-3 h-3 bg-gray-300 rounded-full" />
-            <View className="w-3 h-3 bg-primary rounded-full" />
-            <View className="w-3 h-3 bg-gray-300 rounded-full" />
+            {/* Title */}
+            <Text style={{
+              fontSize: 28,
+              fontWeight: 'bold',
+              color: '#111827',
+              textAlign: 'center',
+              marginBottom: 24
+            }}>
+              Track Buses Live
+            </Text>
+            
+            {/* Description */}
+            <Text style={{
+              fontSize: 16,
+              color: '#6B7280',
+              textAlign: 'center',
+              lineHeight: 24,
+              paddingHorizontal: 16
+            }}>
+              Get real-time location updates and arrival predictions for your buses
+            </Text>
           </View>
 
-          <TouchableOpacity
+          {/* Bottom Navigation */}
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            {/* Progress Dots */}
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{
+                width: 12,
+                height: 12,
+                backgroundColor: '#D1D5DB',
+                borderRadius: 6
+              }} />
+              <View style={{
+                width: 12,
+                height: 12,
+                backgroundColor: '#004CFF',
+                borderRadius: 6
+              }} />
+              <View style={{
+                width: 12,
+                height: 12,
+                backgroundColor: '#D1D5DB',
+                borderRadius: 6
+              }} />
+            </View>
+
+            {/* Next Button */}
+            <TouchableOpacity
             onPress={() => router.push('/onboarding/onboarding3')}
             className="bg-primary w-14 h-14 rounded-full items-center justify-center"
           >
             <ArrowRight size={24} color="white" />
           </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </>
   );
 }

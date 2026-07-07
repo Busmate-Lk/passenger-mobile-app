@@ -8,13 +8,15 @@ interface AppHeaderProps {
   showBackButton?: boolean;
   rightElement?: React.ReactNode;
   onBackPress?: () => void;
+  statusBarStyle?: 'light-content' | 'dark-content';
 }
 
 export default function AppHeader({ 
   title, 
   showBackButton = true, 
   rightElement,
-  onBackPress
+  onBackPress,
+  statusBarStyle = 'light-content'
 }: AppHeaderProps) {
   const router = useRouter();
 
@@ -27,20 +29,23 @@ export default function AppHeader({
   };
 
   return (
-    <View style={styles.header}>
-      {showBackButton ? (
-        <TouchableOpacity
-          onPress={handleBackPress}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      ) : <View style={{ width: 40 }} />}
-      
-      <Text style={styles.headerTitle}>{title}</Text>
-      
-      {rightElement || <View style={{ width: 40 }} />}
-    </View>
+    <>
+      <StatusBar barStyle={statusBarStyle} backgroundColor="#004CFF" translucent={false} />
+      <View style={styles.header}>
+        {showBackButton ? (
+          <TouchableOpacity
+            onPress={handleBackPress}
+            style={styles.backButton}
+          >
+            <ArrowLeft size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        ) : <View style={{ width: 40 }} />}
+        
+        <Text style={styles.headerTitle}>{title}</Text>
+        
+        {rightElement || <View style={{ width: 40 }} />}
+      </View>
+    </>
   );
 }
 
@@ -55,9 +60,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#003CC7',
     // Add proper status bar height for Android
-    // ...(Platform.OS === 'android' ? {
-    //   paddingTop: 16 + (StatusBar.currentHeight || 0)
-    // } : {})
+    ...(Platform.OS === 'android' ? {
+      // paddingTop: 0 + (StatusBar.currentHeight || 0)
+    } : {})
   },
   backButton: {
     width: 40,

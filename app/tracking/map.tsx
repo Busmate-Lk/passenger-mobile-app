@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { 
-  ArrowLeft, 
   Bus, 
   Route, 
   Navigation, 
@@ -25,6 +24,7 @@ import {
 } from 'lucide-react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
+import AppHeader from '../../components/ui/AppHeader';
 
 // Example bus stop interface
 interface BusStop {
@@ -340,30 +340,26 @@ export default function TrackingMapScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>
-            {searchType === 'route' ? 'Route Tracking' : 'Bus Tracking'}
-          </Text>
-          <Text style={styles.headerSubtitle}>{searchValue}</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.refreshButton}
-          onPress={refreshData}
-          disabled={refreshing}
-        >
-          <RefreshCw 
-            size={20} 
-            color="#FFFFFF" 
-            style={refreshing ? styles.rotating : undefined} 
-          />
-        </TouchableOpacity>
+      <AppHeader 
+        title={searchType === 'route' ? 'Route Tracking' : 'Bus Tracking'}
+        rightElement={
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={refreshData}
+            disabled={refreshing}
+          >
+            <RefreshCw 
+              size={20} 
+              color="#FFFFFF" 
+              style={refreshing ? styles.rotating : undefined} 
+            />
+          </TouchableOpacity>
+        }
+      />
+      
+      {/* Search Value Display */}
+      <View style={styles.searchValueContainer}>
+        <Text style={styles.searchValueText}>{searchValue}</Text>
       </View>
 
       {loading ? (
@@ -538,33 +534,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F3F4F9',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#004CFF',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitleContainer: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
   refreshButton: {
     width: 40,
     height: 40,
@@ -573,6 +542,16 @@ const styles = StyleSheet.create({
   },
   rotating: {
     transform: [{ rotate: '45deg' }],
+  },
+  searchValueContainer: {
+    backgroundColor: '#004CFF',
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+  },
+  searchValueText: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,

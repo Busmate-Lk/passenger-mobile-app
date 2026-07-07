@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, StyleSheet, Image, Modal, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Image, Modal, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
   CreditCard,
@@ -10,11 +11,13 @@ import {
   X
 } from 'lucide-react-native';
 import AppHeader from '@/components/ui/AppHeader';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function PaymentMethodsScreen() {
   const router = useRouter();
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState(null);
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
   // Mock payment methods data
   const [paymentMethods, setPaymentMethods] = useState([
@@ -76,9 +79,9 @@ export default function PaymentMethodsScreen() {
   const getCardLogo = (type) => {
     switch(type) {
       case 'visa':
-        return require('../../../assets/images/visa-logo.png'); // You'll need to add these image assets
+        return require('../../../assets/images/visa_logo.png'); // You'll need to add these image assets
       case 'mastercard':
-        return require('../../../assets/images/mastercard-logo.png');
+        return require('../../../assets/images/mastercard_logo.png');
       default:
         return null;
     }
@@ -96,7 +99,7 @@ export default function PaymentMethodsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       <AppHeader title="Payment Methods" />
 
       <ScrollView style={styles.content}>

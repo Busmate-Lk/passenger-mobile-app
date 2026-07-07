@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, TriangleAlert as AlertTriangle, RefreshCw } from 'lucide-react-native';
+import { TriangleAlert as AlertTriangle, RefreshCw } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
+import AppHeader from '@/components/ui/AppHeader';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function CancelTicketScreen() {
   const router = useRouter();
   const [selectedReason, setSelectedReason] = useState('');
   const [customReason, setCustomReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
   const cancellationReasons = [
     'Change of plans',
@@ -43,17 +47,9 @@ export default function CancelTicketScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={safeAreaStyle}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Cancel Ticket</Text>
-      </View>
+      <AppHeader title="Cancel Ticket" />
 
       <ScrollView style={styles.content}>
         {/* Warning Card */}
@@ -188,27 +184,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F4F9',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backgroundColor: '#004CFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#003CC7',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   content: {
     flex: 1,

@@ -1,23 +1,26 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Lock, Shield, AlertTriangle, CreditCard, RefreshCw } from 'lucide-react-native';
+import { Lock, Shield, AlertTriangle, CreditCard, RefreshCw } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
+import { useAuth } from '@/context/AuthContext';
+import MockWalletService from '@/services/mockWalletService';
+import AppHeader from '@/components/ui/AppHeader';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function BlockCardScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [selectedReason, setSelectedReason] = useState('');
   const [customReason, setCustomReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Mock card data
-  const cardData = {
-    cardNumber: '4218 7643 9875 1234',
-    expiryDate: '12/27',
-    name: 'JOHN DOE',
-    balance: 1250.00,
-    issuedDate: 'Jan 10, 2024'
-  };
+  // Get wallet and card data from service
+  const walletData = user?.email ? MockWalletService.getWalletByEmail(user.email) : null;
+  const travelCard = walletData?.travelCard;
+  const balance = walletData?.balance || 0;
+  const blockedCards = user?.email ? MockWalletService.getBlockedCards(user.email) : [];
 
   const blockReasons = [
     'Lost card',
@@ -25,8 +28,12 @@ export default function BlockCardScreen() {
     'Damaged card',
     'Suspicious activity',
     'Card not working',
+    'Requesting new card',
     'Other'
   ];
+
+  // Check if user has an active card to block
+  const hasActiveCard = travelCard?.status === 'active';
 
   const handleBlockCard = async () => {
     if (!selectedReason) {
@@ -34,36 +41,89 @@ export default function BlockCardScreen() {
       return;
     }
     
+    const reason = selectedReason === 'Other' ? customReason : selectedReason;
+    
+    if (selectedReason === 'Other' && !customReason.trim()) {
+      Alert.alert("Error", "Please specify your reason");
+      return;
+    }
+    
     setIsProcessing(true);
     
-    // Simulate API call
+    // Use service to simulate card blocking
+    const success = MockWalletService.simulateCardBlock(
+      user?.email || '', 
+      reason
+    );
+    
     setTimeout(() => {
       setIsProcessing(false);
-      Alert.alert(
-        "Card Blocked",
-        "Your travel card has been blocked successfully. A new card can be requested from the wallet section.",
-        [
-          { 
-            text: "OK", 
-            onPress: () => router.back() 
-          }
-        ]
-      );
+      if (success) {
+        Alert.alert(
+          "Card Blocked",
+          `Your travel card has been blocked successfully. Your balance of LKR ${balance.toFixed(2)} will be transferred to your wallet. A new card can be requested from the wallet section.`,
+          [
+            { 
+              text: "OK", 
+              onPress: () => router.back() 
+            }
+          ]
+        );
+      } else {
+        Alert.alert("Error", "Failed to block card. Please try again.");
+      }
     }, 2000);
   };
+
+  // Show message if no active card
+  if (!hasActiveCard) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <AppHeader title="Block Travel Card" />
+
+        <View style={styles.content}>
+          <View style={styles.infoCard}>
+            <AlertTriangle size={24} color="#6B7280" />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>No Active Card</Text>
+              <Text style={styles.infoText}>
+                You don't have an active travel card to block. 
+                {blockedCards.length > 0 
+                  ? " You have previously blocked cards. You can request a new card from the wallet section."
+                  : " You can request a new travel card from the wallet section."
+                }
+              </Text>
+            </View>
+          </View>
+
+          {blockedCards.length > 0 && (
+            <View style={styles.blockedCardsContainer}>
+              <Text style={styles.sectionTitle}>Previously Blocked Cards</Text>
+              {blockedCards.map((card) => (
+                <View key={card.id} style={styles.blockedCardItem}>
+                  <Text style={styles.blockedCardNumber}>{card.cardNumber}</Text>
+                  <Text style={styles.blockedCardDate}>Blocked: {card.blockDate}</Text>
+                  <Text style={styles.blockedCardReason}>Reason: {card.reason}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <TouchableOpacity
+            onPress={() => router.push('/wallet/request-card')}
+            style={styles.requestCardButton}
+          >
+            <Text style={styles.requestCardButtonText}>Request New Card</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Block Travel Card</Text>
-      </View>
+      <AppHeader title="Block Travel Card" />
 
       <ScrollView style={styles.content}>
         {/* Warning Card */}
@@ -89,21 +149,21 @@ export default function BlockCardScreen() {
             
             <View style={styles.cardContent}>
               <Text style={styles.balanceLabel}>Balance</Text>
-              <Text style={styles.balanceValue}>LKR {cardData.balance}</Text>
+              <Text style={styles.balanceValue}>LKR {balance.toLocaleString()}</Text>
             </View>
             
             <View style={styles.cardNumber}>
-              <Text style={styles.cardNumberText}>{cardData.cardNumber}</Text>
+              <Text style={styles.cardNumberText}>{travelCard?.cardNumber}</Text>
             </View>
             
             <View style={styles.cardFooter}>
               <View>
                 <Text style={styles.cardLabel}>Card Holder</Text>
-                <Text style={styles.cardValue}>{cardData.name}</Text>
+                <Text style={styles.cardValue}>{travelCard?.holderName}</Text>
               </View>
               <View>
                 <Text style={styles.cardLabel}>Expires</Text>
-                <Text style={styles.cardValue}>{cardData.expiryDate}</Text>
+                <Text style={styles.cardValue}>{travelCard?.expiryDate}</Text>
               </View>
             </View>
           </View>
@@ -111,23 +171,29 @@ export default function BlockCardScreen() {
           <View style={styles.cardDetails}>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Card Number</Text>
-              <Text style={styles.detailValue}>{cardData.cardNumber}</Text>
+              <Text style={styles.detailValue}>{travelCard?.cardNumber}</Text>
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Card Holder</Text>
-              <Text style={styles.detailValue}>{cardData.name}</Text>
+              <Text style={styles.detailValue}>{travelCard?.holderName}</Text>
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Issued Date</Text>
-              <Text style={styles.detailValue}>{cardData.issuedDate}</Text>
+              <Text style={styles.detailValue}>{travelCard?.issuedDate}</Text>
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Expiry Date</Text>
-              <Text style={styles.detailValue}>{cardData.expiryDate}</Text>
+              <Text style={styles.detailValue}>{travelCard?.expiryDate}</Text>
             </View>
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Current Balance</Text>
-              <Text style={styles.detailValue}>LKR {cardData.balance}</Text>
+              <Text style={styles.detailValue}>LKR {balance.toLocaleString()}</Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Card Status</Text>
+              <Text style={[styles.detailValue, styles.statusActive]}>
+                {travelCard?.status?.toUpperCase()}
+              </Text>
             </View>
           </View>
         </View>
@@ -249,27 +315,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F4F9',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backgroundColor: '#004CFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#003CC7',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   content: {
     flex: 1,
@@ -550,5 +595,87 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  infoCardIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EBF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+  },
+  infoCardText: {
+    flex: 1,
+  },
+  infoCardTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  infoCardDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
+  blockedCardsContainer: {
+    marginTop: 16,
+  },
+  blockedCardItem: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  blockedCardNumber: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  blockedCardDate: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  blockedCardReason: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  requestCardButton: {
+    backgroundColor: '#004CFF',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  requestCardButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: 'white',
+  },
+  statusActive: {
+    color: '#16A34A',
+    fontWeight: '600',
+  },
+  statusInactive: {
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+  statusPending: {
+    color: '#FFA500',
+    fontWeight: '600',
   },
 });

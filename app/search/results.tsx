@@ -1,77 +1,79 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image } from 'react-native';
-import { useRouter } from 'expo-router';
-import { ArrowLeft, Clock, MapPin, Users, Wifi, Snowflake, Zap, Star } from 'lucide-react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Filter } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
+import BusRouteCard from '../../components/BusRouteCard';
+import RouteFilterModal from '../../components/modals/NewRouteFilterModal';
+import AppHeader from '../../components/ui/AppHeader';
+import { PassengerApIsService, PassengerTripResponse } from '../../lib/api-client/route-management';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
-interface RouteResult {
-  id: string;
-  routeNumber: string;
-  operatorName: string;
-  departureTime: string;
-  arrivalTime: string;
-  duration: string;
-  price: number;
-  availableSeats: number;
-  rating: number;
-  amenities: string[];
-  busImage: string;
+interface FilterOptionsType {
+  travelDate: Date;
+  departureTimeFrom?: string;
+  departureTimeTo?: string;
+  operatorType?: 'PRIVATE' | 'CTB';
+  operatorId?: string;
+  status?: 'pending' | 'active' | 'completed' | 'cancelled' | 'delayed' | 'in_transit' | 'boarding' | 'departed';
+  passengers: number;
 }
-
-const mockResults: RouteResult[] = [
-  {
-    id: '1',
-    routeNumber: '001',
-    operatorName: 'SLTB Express',
-    departureTime: '08:30',
-    arrivalTime: '11:00',
-    duration: '2h 30m',
-    price: 250,
-    availableSeats: 23,
-    rating: 4.5,
-    amenities: ['ac', 'wifi', 'charging'],
-    busImage: 'https://images.pexels.com/photos/1545743/pexels-photo-1545743.jpeg?auto=compress&cs=tinysrgb&w=800'
-  },
-  {
-    id: '2',
-    routeNumber: '138',
-    operatorName: 'Lanka Travels',
-    departureTime: '09:15',
-    arrivalTime: '11:45',
-    duration: '2h 30m',
-    price: 280,
-    availableSeats: 15,
-    rating: 4.2,
-    amenities: ['ac', 'charging'],
-    busImage: 'https://images.pexels.com/photos/1098365/pexels-photo-1098365.jpeg?auto=compress&cs=tinysrgb&w=800'
-  },
-  {
-    id: '3',
-    routeNumber: '205',
-    operatorName: 'Comfort Line',
-    departureTime: '10:00',
-    arrivalTime: '12:30',
-    duration: '2h 30m',
-    price: 320,
-    availableSeats: 8,
-    rating: 4.8,
-    amenities: ['ac', 'wifi', 'charging'],
-    busImage: 'https://images.pexels.com/photos/1098364/pexels-photo-1098364.jpeg?auto=compress&cs=tinysrgb&w=800'
-  }
-];
 
 export default function SearchResultsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [trips, setTrips] = useState<PassengerTripResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
-  const getAmenityIcon = (amenity: string) => {
-    switch (amenity) {
-      case 'ac': return <Snowflake size={16} color="#004CFF" />;
-      case 'wifi': return <Wifi size={16} color="#004CFF" />;
-      case 'charging': return <Zap size={16} color="#004CFF" />;
-      default: return null;
+  // Parse parameters from search
+  const fromStopId = params.fromStopId as string;
+  const toStopId = params.toStopId as string;
+  const fromStopName = params.fromStopName as string || 'Origin';
+  const toStopName = params.toStopName as string || 'Destination';
+  const passengers = parseInt(params.passengers as string) || 1;
+  
+  // Parse travel date
+  const travelDate = (() => {
+    if (params.travelDate && typeof params.travelDate === 'string' && params.travelDate.trim() !== '') {
+      const parsedDate = new Date(params.travelDate);
+      return isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
     }
-  };
+    return new Date();
+  })();
+  
+  // Parse filter options from params or use defaults
+  const [filterOptions, setFilterOptions] = useState<FilterOptionsType>(() => {
+    if (params.filters) {
+      try {
+        const parsed = JSON.parse(params.filters as string);
+        return {
+          travelDate: parsed.travelDate ? new Date(parsed.travelDate) : travelDate,
+          departureTimeFrom: params.departureTimeFrom as string || parsed.departureTimeFrom,
+          departureTimeTo: params.departureTimeTo as string || parsed.departureTimeTo,
+          operatorType: params.operatorType as ('PRIVATE' | 'CTB') || parsed.operatorType,
+          operatorId: params.operatorId as string || parsed.operatorId,
+          status: parsed.status,
+          passengers: passengers
+        };
+      } catch (e) {
+        console.error('Error parsing filter options:', e);
+      }
+    }
+    return {
+      travelDate: travelDate,
+      departureTimeFrom: params.departureTimeFrom as string,
+      departureTimeTo: params.departureTimeTo as string,
+      operatorType: params.operatorType as ('PRIVATE' | 'CTB'),
+      operatorId: params.operatorId as string,
+      status: undefined,
+      passengers: passengers
+    };
+  });
 
   const filters = [
     { id: 'all', label: 'All' },
@@ -80,23 +82,101 @@ export default function SearchResultsScreen() {
     { id: 'highest-rated', label: 'Highest Rated' }
   ];
 
-  return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Colombo Fort → Kandy</Text>
-          <Text style={styles.headerSubtitle}>Today • 3 passengers</Text>
-        </View>
-      </View>
+    // Fetch trips from API based on search criteria and filters
+  useEffect(() => {
+    const fetchTrips = async () => {
+      if (!fromStopId || !toStopId) {
+        return;
+      }
 
-      {/* Filters */}
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await PassengerApIsService.searchTrips(
+          fromStopId,
+          toStopId,
+          undefined, // routeId
+          filterOptions.travelDate.toISOString().split('T')[0], // travelDate in YYYY-MM-DD format
+          filterOptions.departureTimeFrom, // departureTimeFrom
+          filterOptions.departureTimeTo, // departureTimeTo
+          filterOptions.operatorType, // operatorType
+          filterOptions.operatorId, // operatorId
+          filterOptions.status, // status
+          0, // page
+          50 // size
+        );
+
+        let fetchedTrips = response.content || [];
+
+        // Apply sorting based on selected filter
+        switch (selectedFilter) {
+          case 'cheapest':
+            fetchedTrips.sort((a, b) => (a.fare || 0) - (b.fare || 0));
+            break;
+          case 'fastest':
+            fetchedTrips.sort((a, b) => (a.duration || 0) - (b.duration || 0));
+            break;
+          case 'highest-rated':
+            // Rating might not be available in trip response, skip for now
+            break;
+          default:
+            // Keep original order
+            break;
+        }
+
+        setTrips(fetchedTrips);
+      } catch (err) {
+        console.error('Error fetching trips:', err);
+        setError('Failed to fetch trip information. Please try again.');
+        setTrips([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTrips();
+  }, [fromStopId, toStopId, filterOptions, selectedFilter]);
+
+  const applyFilters = (newFilters: FilterOptionsType) => {
+    setFilterOptions(newFilters);
+  };
+
+  const handleTripPress = (trip: PassengerTripResponse) => {
+    router.push({
+      pathname: '/search/schedule',
+      params: {
+        tripId: trip.tripId || '',
+        fromStopName,
+        toStopName,
+        passengers: passengers.toString()
+      }
+    });
+  };
+
+  return (
+    <SafeAreaView style={safeAreaStyle}>
+      {/* Header */}
+      <AppHeader 
+        title={`${fromStopName} → ${toStopName}`}
+        rightElement={
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => setShowFilterModal(true)}
+          >
+            <Filter size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        }
+      />
+      
+      {/* Search Info */}
+      {/* <View style={styles.searchInfoContainer}>
+        <Text style={styles.searchInfoText}>
+          {searchDate.toLocaleDateString()} • {passengers} passenger{passengers !== 1 ? 's' : ''}
+        </Text>
+      </View> */}
+
+      {/* Quick Filters */}
       <View style={styles.filtersContainer}>
         <ScrollView 
           horizontal 
@@ -108,8 +188,8 @@ export default function SearchResultsScreen() {
               key={filter.id}
               onPress={() => setSelectedFilter(filter.id)}
               style={[
-                styles.filterButton,
-                selectedFilter === filter.id && styles.filterButtonActive
+                styles.quickFilterButton,
+                selectedFilter === filter.id && styles.quickFilterButtonActive
               ]}
             >
               <Text style={[
@@ -125,65 +205,50 @@ export default function SearchResultsScreen() {
 
       {/* Results */}
       <ScrollView style={styles.resultsContainer}>
-        <Text style={styles.resultsCount}>{mockResults.length} buses found</Text>
-        
-        {mockResults.map((result) => (
-          <TouchableOpacity
-            key={result.id}
-            onPress={() => router.push('/search/schedule')}
-            style={styles.resultCard}
-          >
-            <View style={styles.cardHeader}>
-              <Image source={{ uri: result.busImage }} style={styles.busImage} />
-              <View style={styles.cardHeaderInfo}>
-                <View style={styles.operatorRow}>
-                  <Text style={styles.operatorName}>{result.operatorName}</Text>
-                  <View style={styles.ratingContainer}>
-                    <Star size={14} color="#FFB800" fill="#FFB800" />
-                    <Text style={styles.rating}>{result.rating}</Text>
-                  </View>
-                </View>
-                <Text style={styles.routeNumber}>Route {result.routeNumber}</Text>
-              </View>
-            </View>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#004CFF" />
+            <Text style={styles.loadingText}>Searching for trips...</Text>
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorTitle}>Error</Text>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.resultsCount}>
+              {trips.length} trip{trips.length !== 1 ? 's' : ''} found
+            </Text>
 
-            <View style={styles.timeContainer}>
-              <View style={styles.timePoint}>
-                <Text style={styles.time}>{result.departureTime}</Text>
-                <Text style={styles.location}>Colombo Fort</Text>
+            {trips.length === 0 ? (
+              <View style={styles.noResultsContainer}>
+                <Text style={styles.noResultsTitle}>No trips found</Text>
+                <Text style={styles.noResultsText}>
+                  Try adjusting your filters or search criteria
+                </Text>
               </View>
-              
-              <View style={styles.journeyLine}>
-                <View style={styles.dot} />
-                <View style={styles.line} />
-                <Text style={styles.duration}>{result.duration}</Text>
-                <View style={styles.line} />
-                <View style={styles.dot} />
-              </View>
-              
-              <View style={styles.timePoint}>
-                <Text style={styles.time}>{result.arrivalTime}</Text>
-                <Text style={styles.location}>Kandy</Text>
-              </View>
-            </View>
-
-            <View style={styles.cardFooter}>
-              <View style={styles.amenitiesContainer}>
-                {result.amenities.map((amenity, index) => (
-                  <View key={index} style={styles.amenityIcon}>
-                    {getAmenityIcon(amenity)}
-                  </View>
-                ))}
-              </View>
-              
-              <View style={styles.priceContainer}>
-                <Text style={styles.availableSeats}>{result.availableSeats} seats left</Text>
-                <Text style={styles.price}>LKR {result.price}</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
+            ) : (
+              trips.map((trip) => (
+                <BusRouteCard 
+                  key={trip.tripId}
+                  trip={trip} 
+                  onPress={() => handleTripPress(trip)}
+                  showAmenities={false}
+                />
+              ))
+            )}
+          </>
+        )}
       </ScrollView>
+
+      {/* Filter Modal */}
+      <RouteFilterModal
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        filterOptions={filterOptions}
+        onApplyFilters={applyFilters}
+      />
     </SafeAreaView>
   );
 }
@@ -193,35 +258,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F3F4F9',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
+  searchInfoContainer: {
     backgroundColor: '#004CFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#003CC7',
+    paddingHorizontal: 24,
+    paddingBottom: 16,
   },
-  backButton: {
+  searchInfoText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.8,
+  },
+  filterButton: {
     width: 40,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
-  },
-  headerContent: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    opacity: 0.8,
-    marginTop: 2,
   },
   filtersContainer: {
     backgroundColor: 'white',
@@ -234,14 +285,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  filterButton: {
+  quickFilterButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 20,
     backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  filterButtonActive: {
+  quickFilterButtonActive: {
     backgroundColor: '#004CFF',
+    borderColor: '#004CFF',
   },
   filterText: {
     fontSize: 14,
@@ -261,131 +315,46 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginVertical: 16,
   },
-  resultCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  cardHeader: {
-    flexDirection: 'row',
+  noResultsContainer: {
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'center',
+    paddingVertical: 60,
   },
-  busImage: {
-    width: 60,
-    height: 40,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  cardHeaderInfo: {
-    flex: 1,
-  },
-  operatorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  operatorName: {
-    fontSize: 16,
+  noResultsTitle: {
+    fontSize: 18,
     fontWeight: '600',
     color: '#111827',
+    marginBottom: 8,
   },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  rating: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
-  },
-  routeNumber: {
+  noResultsText: {
     fontSize: 14,
     color: '#6B7280',
-    marginTop: 2,
+    textAlign: 'center',
   },
-  timeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  timePoint: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  time: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  location: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  journeyLine: {
-    flex: 2,
-    flexDirection: 'row',
+  loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 16,
+    paddingVertical: 60,
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#004CFF',
-  },
-  line: {
-    flex: 1,
-    height: 2,
-    backgroundColor: '#E5E7EB',
-    marginHorizontal: 8,
-  },
-  duration: {
-    fontSize: 12,
+  loadingText: {
+    fontSize: 16,
     color: '#6B7280',
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    marginTop: 16,
   },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  amenitiesContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  amenityIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EBF2FF',
+  errorContainer: {
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 60,
   },
-  priceContainer: {
-    alignItems: 'flex-end',
-  },
-  availableSeats: {
-    fontSize: 12,
-    color: '#1DD724',
-    fontWeight: '500',
-  },
-  price: {
+  errorTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#004CFF',
-    marginTop: 2,
+    fontWeight: '600',
+    color: '#EF4444',
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
   },
 });

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, StatusBar } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useRouter } from 'expo-router';
 import { Check } from 'lucide-react-native';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 interface Language {
   code: string;
@@ -19,6 +21,7 @@ const languages: Language[] = [
 export default function LanguageScreen() {
   const [selectedLanguage, setSelectedLanguage] = useState('en');
   const router = useRouter();
+  const safeAreaStyle = useSafeAreaContainerStyles();
 
   const handleContinue = () => {
     // Here you would save the selected language to storage
@@ -28,7 +31,7 @@ export default function LanguageScreen() {
   return (
     <>
       <StatusBar backgroundColor="#004CFF" barStyle="light-content" />
-      <SafeAreaView className="flex-1 bg-background">
+      <SafeAreaView style={safeAreaStyle}>
         <View className="flex-1 px-6 py-8">
           <View className="flex-1 justify-center h-full mb-20">
             <Text className="text-3xl font-bold text-gray-900 text-center mb-4">

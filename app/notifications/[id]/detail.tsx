@@ -22,7 +22,6 @@ import {
   Star,
   Trash2
 } from 'lucide-react-native';
-import { StatusBar } from 'expo-status-bar';
 import AppHeader from '../../../components/ui/AppHeader';
 
 export default function NotificationDetailScreen() {
@@ -199,9 +198,7 @@ export default function NotificationDetailScreen() {
   if (!notification) {
     return (
       <SafeAreaView style={styles.container}>
-        <StatusBar style="light" />
-        
-        <AppHeader title="Notification" />
+        <AppHeader title="Notification" statusBarStyle="light-content" />
         
         <View style={styles.centerContent}>
           <Text style={styles.errorText}>Notification not found</Text>
@@ -212,12 +209,13 @@ export default function NotificationDetailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
+      {/* Remove StatusBar component as it's now handled by AppHeader */}
       
       {/* Using the AppHeader component */}
       <AppHeader 
         title="Notification"
         rightElement={headerRightElement}
+        statusBarStyle="light-content"
       />
 
       <ScrollView style={styles.content}>

@@ -1,133 +1,153 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  TextInput,
   ScrollView,
-  SafeAreaView,
   StyleSheet,
-  Platform,
-  StatusBar,
+  ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import {
-  MapPin,
-  Search as SearchIcon,
-  Filter,
-  ArrowRightLeft,
-  ArrowLeft,
-  Clock,
-} from 'lucide-react-native';
-import RouteFilterModal from '../../components/modals/RouteFilterModal';
+import { Search, ArrowUpDown, Filter, MapPin, Clock } from 'lucide-react-native';
+import AppHeader from '../../components/ui/AppHeader';
+import RouteFilterModal from '../../components/modals/NewRouteFilterModal';
+import StopSearchInput from '../../components/StopSearchInput';
+import { PassengerStopResponse, PassengerApIsService } from '../../lib/api-client/route-management';
 
 interface FilterOptionsType {
-  priceRange: [number, number];
-  departureTime: string[];
-  busType: string[];
-  amenities: string[];
-  operators: string[];
-  date?: Date;
-  endDate?: Date;
-  isDateRange: boolean;
+  travelDate: Date;
+  departureTimeFrom?: string;
+  departureTimeTo?: string;
+  operatorType?: 'PRIVATE' | 'CTB';
+  operatorId?: string;
+  status?: 'pending' | 'active' | 'completed' | 'cancelled' | 'delayed' | 'in_transit' | 'boarding' | 'departed';
   passengers: number;
 }
 
 export default function SearchScreen() {
   const router = useRouter();
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [fromStop, setFromStop] = useState<PassengerStopResponse | null>(null);
+  const [toStop, setToStop] = useState<PassengerStopResponse | null>(null);
   const [showFilterModal, setShowFilterModal] = useState(false);
-  const [recentSearches, setRecentSearches] = useState([
-    'Colombo Fort to Kandy',
-    'Negombo to Colombo',
-    'Galle to Colombo',
-  ]);
-  const [popularDestinations, setPopularDestinations] = useState([
-    'Kandy',
-    'Galle',
-    'Jaffna',
-    'Nuwara Eliya',
-    'Anuradhapura',
-    'Trincomalee',
-  ]);
+  const [popularDestinations, setPopularDestinations] = useState<PassengerStopResponse[]>([]);
+  const [loadingDestinations, setLoadingDestinations] = useState(true);
 
   const [filterOptions, setFilterOptions] = useState<FilterOptionsType>({
-    priceRange: [100, 500],
-    departureTime: [],
-    busType: [],
-    amenities: [],
-    operators: [],
-    date: new Date(),
-    endDate: undefined,
-    isDateRange: false,
+    travelDate: new Date(),
+    departureTimeFrom: undefined,
+    departureTimeTo: undefined,
+    operatorType: undefined,
+    operatorId: undefined,
+    status: undefined,
     passengers: 1
   });
 
-  const handleSearch = () => {
-    // Create search params object
-    const searchParams = {
-      from,
-      to,
-      date: filterOptions.date?.toISOString(),
-      endDate: filterOptions.endDate?.toISOString(),
-      passengers: filterOptions.passengers,
-      filters: filterOptions
-    };
+  // Load popular destinations from API
+  useEffect(() => {
+    loadPopularDestinations();
+  }, []);
 
-    // Save to recent searches
-    if (from && to && !recentSearches.includes(`${from} to ${to}`)) {
-      setRecentSearches(prev => [`${from} to ${to}`, ...prev].slice(0, 5));
+  const loadPopularDestinations = async () => {
+    try {
+      setLoadingDestinations(true);
+      // Get popular stops - we'll search for major cities/areas
+      const majorCities = ['Colombo', 'Kandy', 'Galle', 'Negombo', 'Anuradhapura', 'Matara'];
+      const destinations: PassengerStopResponse[] = [];
+
+      for (const city of majorCities) {
+        try {
+          const response = await PassengerApIsService.searchStops(
+            undefined, // name
+            city, // city
+            undefined, // searchText
+            undefined, // accessibleOnly
+            0, // page
+            1 // size - just get the first result for each city
+          );
+          
+          if (response.content && response.content.length > 0) {
+            destinations.push(response.content[0]);
+          }
+        } catch (error) {
+          console.warn(`Failed to load destination for ${city}:`, error);
+        }
+      }
+
+      setPopularDestinations(destinations);
+    } catch (error) {
+      console.error('Error loading popular destinations:', error);
+      // Fallback to empty array if API fails
+      setPopularDestinations([]);
+    } finally {
+      setLoadingDestinations(false);
+    }
+  };
+
+  const handleSearch = () => {
+    if (!fromStop || !toStop) {
+      return;
     }
 
-    // Navigate to results
+    // Navigate to results with search parameters
     router.push({
       pathname: '/search/results',
       params: {
-        from,
-        to,
-        date: filterOptions.date ? filterOptions.date.toLocaleDateString() : '',
-        endDate: filterOptions.endDate ? filterOptions.endDate.toLocaleDateString() : '',
-        passengers: filterOptions.passengers
+        fromStopId: fromStop.stopId || '',
+        toStopId: toStop.stopId || '',
+        fromStopName: fromStop.name || '',
+        toStopName: toStop.name || '',
+        travelDate: filterOptions.travelDate.toISOString().split('T')[0], // YYYY-MM-DD format
+        departureTimeFrom: filterOptions.departureTimeFrom || '',
+        departureTimeTo: filterOptions.departureTimeTo || '',
+        operatorType: filterOptions.operatorType || '',
+        operatorId: filterOptions.operatorId || '',
+        passengers: filterOptions.passengers.toString(),
+        filters: JSON.stringify(filterOptions)
       }
     });
   };
 
   const swapLocations = () => {
-    const temp = from;
-    setFrom(to);
-    setTo(temp);
+    const tempFromStop = fromStop;
+    setFromStop(toStop);
+    setToStop(tempFromStop);
   };
 
   const applyFilters = (newFilters: FilterOptionsType) => {
     setFilterOptions(newFilters);
   };
 
+  const handleDestinationSelect = (destination: PassengerStopResponse) => {
+    // If fromStop is empty, set it as from, otherwise set as to
+    if (!fromStop) {
+      setFromStop(destination);
+    } else {
+      setToStop(destination);
+    }
+  };
+
   const formatFilterSummary = () => {
     const parts = [];
 
     // Date info
-    if (filterOptions.date) {
-      if (filterOptions.isDateRange && filterOptions.endDate) {
-        parts.push(`${filterOptions.date.toLocaleDateString()} - ${filterOptions.endDate.toLocaleDateString()}`);
-      } else {
-        parts.push(filterOptions.date.toLocaleDateString());
-      }
-    }
+    parts.push(filterOptions.travelDate.toLocaleDateString());
 
     // Passenger info
     parts.push(`${filterOptions.passengers} passenger${filterOptions.passengers !== 1 ? 's' : ''}`);
 
-    // Other filter selections
-    const activeFilters = [
-      ...filterOptions.departureTime,
-      ...filterOptions.busType,
-      ...filterOptions.amenities,
-      ...filterOptions.operators
-    ];
+    // Departure time filters
+    if (filterOptions.departureTimeFrom && filterOptions.departureTimeTo) {
+      parts.push(`${filterOptions.departureTimeFrom} - ${filterOptions.departureTimeTo}`);
+    } else if (filterOptions.departureTimeFrom) {
+      parts.push(`From ${filterOptions.departureTimeFrom}`);
+    } else if (filterOptions.departureTimeTo) {
+      parts.push(`Until ${filterOptions.departureTimeTo}`);
+    }
 
-    if (activeFilters.length > 0) {
-      parts.push(`${activeFilters.length} filter${activeFilters.length !== 1 ? 's' : ''}`);
+    // Operator type
+    if (filterOptions.operatorType) {
+      parts.push(filterOptions.operatorType);
     }
 
     return parts.join(' • ');
@@ -135,24 +155,20 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Search Bus Routes</Text>
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={() => setShowFilterModal(true)}
-        >
-          <Filter size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+      <AppHeader 
+        title="Search Bus Routes"
+        showBackButton={true}
+        rightElement={
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => setShowFilterModal(true)}
+          >
+            <Filter size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        }
+        statusBarStyle="light-content"
+      />
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.sectionContainer}>
@@ -161,39 +177,29 @@ export default function SearchScreen() {
             {/* Search inputs container */}
             <View style={styles.searchInputsContainer}>
               {/* From */}
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>From</Text>
-                <View style={[styles.inputWrapper, styles.fromInput]}>
-                  <MapPin size={18} color="#6B7280" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter departure location"
-                    value={from}
-                    onChangeText={setFrom}
-                  />
-                </View>
-              </View>
+              <StopSearchInput
+                label="From"
+                placeholder="Enter departure location"
+                value={fromStop?.name || ''}
+                onStopSelect={setFromStop}
+                style={styles.inputContainer}
+              />
 
               {/* To */}
-              <View style={[styles.inputContainer, styles.toInputContainer]}>
-                <Text style={styles.inputLabel}>To</Text>
-                <View style={[styles.inputWrapper, styles.toInput]}>
-                  <MapPin size={18} color="#6B7280" />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter destination"
-                    value={to}
-                    onChangeText={setTo}
-                  />
-                </View>
-              </View>
+              <StopSearchInput
+                label="To"
+                placeholder="Enter destination"
+                value={toStop?.name || ''}
+                onStopSelect={setToStop}
+                style={[styles.inputContainer, styles.toInputContainer]}
+              />
 
               {/* Swap Button */}
               <TouchableOpacity
                 style={styles.swapButton}
                 onPress={swapLocations}
               >
-                <ArrowRightLeft size={16} color="#FFFFFF" />
+                <ArrowUpDown size={16} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
 
@@ -210,63 +216,45 @@ export default function SearchScreen() {
 
             {/* Search Button */}
             <TouchableOpacity
-              style={styles.searchButton}
+              style={[
+                styles.searchButton,
+                (!fromStop || !toStop) && styles.searchButtonDisabled
+              ]}
               onPress={handleSearch}
-              disabled={!from || !to}
+              disabled={!fromStop || !toStop}
             >
-              <SearchIcon size={18} color="#FFFFFF" />
+              <Search size={18} color="#FFFFFF" />
               <Text style={styles.searchButtonText}>Search Routes</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Recent Searches */}
-          {recentSearches.length > 0 && (
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Recent Searches</Text>
-                <TouchableOpacity onPress={() => setRecentSearches([])}>
-                  <Text style={styles.clearText}>Clear</Text>
-                </TouchableOpacity>
-              </View>
-
-              {recentSearches.map((search, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.recentSearchItem}
-                  onPress={() => {
-                    const [fromStr, toStr] = search.split(' to ');
-                    setFrom(fromStr);
-                    setTo(toStr);
-                  }}
-                >
-                  <View style={styles.recentSearchIcon}>
-                    <Clock size={16} color="#004CFF" />
-                  </View>
-                  <Text style={styles.recentSearchText}>{search}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
           {/* Popular Destinations */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Popular Destinations</Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Popular Destinations</Text>
+              {loadingDestinations && (
+                <ActivityIndicator size="small" color="#004CFF" />
+              )}
+            </View>
             <View style={styles.destinationsGrid}>
               {popularDestinations.map((destination, index) => (
                 <TouchableOpacity
-                  key={index}
+                  key={destination.stopId || index}
                   style={styles.destinationChip}
-                  onPress={() => setTo(destination)}
+                  onPress={() => handleDestinationSelect(destination)}
                 >
-                  <Text style={styles.destinationText}>{destination}</Text>
+                  <Text style={styles.destinationText}>{destination.name}</Text>
                 </TouchableOpacity>
               ))}
+              {!loadingDestinations && popularDestinations.length === 0 && (
+                <Text style={styles.noDestinationsText}>No destinations available</Text>
+              )}
             </View>
           </View>
         </View>
       </ScrollView>
 
-      {/* Filter Modal - with updated props */}
+      {/* Filter Modal */}
       <RouteFilterModal
         visible={showFilterModal}
         onClose={() => setShowFilterModal(false)}
@@ -281,27 +269,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F3F4F9',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backgroundColor: '#004CFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#003CC7',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   filterButton: {
     width: 40,
@@ -341,7 +308,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#374151',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -351,7 +318,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 6,
   },
   fromInput: {
     borderBottomLeftRadius: 0,
@@ -404,6 +371,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
   },
+  searchButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+  },
   searchButtonText: {
     fontSize: 16,
     fontWeight: '600',
@@ -432,30 +402,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
   },
-  clearText: {
-    fontSize: 14,
-    color: '#004CFF',
-  },
-  recentSearchItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  recentSearchIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#EBF2FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  recentSearchText: {
-    fontSize: 14,
-    color: '#374151',
-  },
   destinationsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -472,5 +418,11 @@ const styles = StyleSheet.create({
   destinationText: {
     fontSize: 14,
     color: '#004CFF',
+  },
+  noDestinationsText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 16,
   },
 });

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, StyleSheet, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
   ChevronRight, 
@@ -55,7 +56,7 @@ export default function ProfileScreen() {
       title: 'Favorite Routes',
       icon: <Heart size={20} color="#004CFF" />,
       route: '/profile/favorites',
-      badge: user?.savedRoutes
+      badge: user?.favoriteRoutes?.length || user?.savedRoutes
     },
     {
       id: 'notifications',
@@ -89,33 +90,26 @@ export default function ProfileScreen() {
     }
   ];
 
-  // Add a function to map image paths to require statements
+  // Use placeholder image instead of problematic asset images
   const getProfileImage = (imagePath: string | undefined) => {
-    if (!imagePath) return require('@/assets/users/kavinda.png');
-    
-    // Map each possible image path to its require statement
-    switch (imagePath) {
-      case '/assets/users/kavinda.png':
-      case '@/assets/users/kavinda.png':
-        return require('@/assets/users/kavinda.png');
-      case '/assets/users/manusha.png':
-      case '@/assets/users/manusha.png':
-        return require('@/assets/users/manusha.png');
-      case '/assets/users/nadun.png':
-      case '@/assets/users/nadun.png':
-        return require('@/assets/users/nadun.png');
-      case '/assets/users/nethmi.png':
-      case '@/assets/users/nethmi.png':
-        return require('@/assets/users/nethmi.png');
-      case '/assets/users/chamudi.png':
-      case '@/assets/users/chamudi.png':
-        return require('@/assets/users/chamudi.png');
-      case '/assets/users/ishan.png':
-      case '@/assets/users/ishan.png':
-        return require('@/assets/users/ishan.png');
-      default:
-        return require('@/assets/users/kavinda.png');
+    return { uri: 'https://iamkavinda.vercel.app/assets/profile-photo-CCXUFtA8.jpeg' };
+  };
+
+  // Format member since date
+  const formatMemberSince = (memberSince?: string) => {
+    if (!memberSince) return 'New User';
+    // Try to parse as ISO timestamp or other date string
+    const date = new Date(memberSince);
+    if (!isNaN(date.getTime())) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     }
+    // If it's already a friendly string like "June 2024", return as is
+    if (memberSince.includes(' ')) return memberSince;
+    // Fallback to original string
+    return memberSince;
   };
 
   return (
@@ -139,9 +133,9 @@ export default function ProfileScreen() {
             style={styles.profileImage} 
           />
           <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{user?.name}</Text>
-            <Text style={styles.profileDetail}>{user?.phone}</Text>
-            <Text style={styles.profileDetail}>{user?.email}</Text>
+            <Text style={styles.profileName}>{user?.name || 'User'}</Text>
+            <Text style={styles.profileDetail}>{user?.phone || 'No phone number'}</Text>
+            <Text style={styles.profileDetail}>{user?.email || 'No email'}</Text>
           </View>
           <TouchableOpacity 
             style={styles.editButton}
@@ -159,12 +153,12 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={[styles.statItem, { flex: 2 }]}>
-            <Text style={styles.statValue}>{user?.savedRoutes || 0}</Text>
+            <Text style={styles.statValue}>{user?.favoriteRoutes?.length || user?.savedRoutes || 0}</Text>
             <Text style={styles.statLabel}>Saved Routes</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={[styles.statItem, { flex: 3 }]}>
-            <Text style={styles.statValue}>{user?.memberSince || 'New User'}</Text>
+            <Text style={styles.statValue}>{formatMemberSince(user?.memberSince || 'New User')}</Text>
             <Text style={styles.statLabel}>Member Since</Text>
           </View>
         </View>

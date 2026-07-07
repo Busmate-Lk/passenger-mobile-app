@@ -1,241 +1,175 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, User, Phone, Mail, MapPin, Calendar, Clock } from 'lucide-react-native';
+import { ArrowLeft, User, Phone, MapPin, Calendar, Clock, Plus, UserPlus, CheckCircle, ArrowRight } from 'lucide-react-native';
 import { StyleSheet } from 'react-native';
-
-interface Passenger {
-  id: string;
-  name: string;
-  age: string;
-  gender: 'male' | 'female';
-  phone: string;
-  email: string;
-}
+import AppHeader from '@/components/ui/AppHeader';
+import { useBooking } from '@/context/BookingContext';
+import { formatFare } from '@/utils/bookingUtils';
+import { useSafeAreaContainerStyles } from '@/hooks/useSafeAreaStyles';
 
 export default function BookingScreen() {
   const router = useRouter();
-  const [passengers, setPassengers] = useState<Passenger[]>([
-    { id: '1', name: '', age: '', gender: 'male', phone: '', email: '' }
-  ]);
+  const { bookingData, setSelectedSeat } = useBooking();
+  const safeAreaStyle = useSafeAreaContainerStyles();
+  
+  // Get selected seat from booking data
+  const selectedSeat = bookingData?.selectedSeatNumber;
+  
+  // Redirect if no booking data
+  useEffect(() => {
+    if (!bookingData) {
+      Alert.alert(
+        'No Booking Data',
+        'Please start the booking process from the search results.',
+        [{ text: 'OK', onPress: () => router.back() }]
+      );
+    }
+  }, [bookingData, router]);
 
-  const addPassenger = () => {
-    const newPassenger: Passenger = {
-      id: Date.now().toString(),
-      name: '',
-      age: '',
-      gender: 'male',
-      phone: '',
-      email: ''
-    };
-    setPassengers([...passengers, newPassenger]);
+  if (!bookingData) {
+    return null; // Will redirect via useEffect
+  }
+
+  const handleSeatSelection = () => {
+    router.push('/search/seat-selection');
   };
 
-  const removePassenger = (id: string) => {
-    if (passengers.length > 1) {
-      setPassengers(passengers.filter(p => p.id !== id));
+  const handleConfirmBooking = () => {
+    router.push('/search/payment');
+  };
+
+  const formatTime = (timeString?: string) => {
+    if (!timeString) return '--:--';
+    
+    // Handle both "HH:MM:SS" and "HH:MM" formats
+    const timeParts = timeString.split(':');
+    if (timeParts.length >= 2) {
+      return `${timeParts[0]}:${timeParts[1]}`;
+    }
+    
+    return timeString;
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Today';
+    
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'short',
+        month: 'short', 
+        day: 'numeric'
+      });
+    } catch {
+      return 'Today';
     }
   };
 
-  const updatePassenger = (id: string, field: keyof Passenger, value: string) => {
-    setPassengers(passengers.map(p => 
-      p.id === id ? { ...p, [field]: value } : p
-    ));
-  };
-
-  const bookingDetails = {
-    route: 'Colombo Fort → Kandy',
-    date: 'Today, Jan 15',
-    time: '08:30 AM',
-    duration: '2h 30m',
-    operator: 'SLTB Express',
-    routeNumber: '001',
-    price: 250
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Booking Details</Text>
-      </View>
+    <SafeAreaView style={safeAreaStyle}>
+      <AppHeader title="Booking Confirmation" />
 
       <ScrollView style={styles.content}>
-        {/* Trip Summary */}
+        {/* Trip Summary Card */}
         <View style={styles.summaryCard}>
           <Text style={styles.sectionTitle}>Trip Summary</Text>
           <View style={styles.tripDetails}>
             <View style={styles.tripRow}>
-              <MapPin size={16} color="#6B7280" />
-              <Text style={styles.tripText}>{bookingDetails.route}</Text>
+              <MapPin size={16} color="#004CFF" />
+              <Text style={styles.tripText}>{bookingData.fromStopName} → {bookingData.toStopName}</Text>
             </View>
             <View style={styles.tripRow}>
-              <Calendar size={16} color="#6B7280" />
-              <Text style={styles.tripText}>{bookingDetails.date}</Text>
+              <Calendar size={16} color="#004CFF" />
+              <Text style={styles.tripText}>{formatDate(bookingData.tripData.scheduledDeparture)}</Text>
             </View>
             <View style={styles.tripRow}>
-              <Clock size={16} color="#6B7280" />
-              <Text style={styles.tripText}>{bookingDetails.time} • {bookingDetails.duration}</Text>
+              <Clock size={16} color="#004CFF" />
+              <Text style={styles.tripText}>
+                {formatTime(bookingData.tripData.scheduledDeparture)} - {formatTime(bookingData.tripData.scheduledArrival)}
+              </Text>
             </View>
           </View>
           <View style={styles.operatorInfo}>
-            <Text style={styles.operatorName}>{bookingDetails.operator}</Text>
-            <Text style={styles.routeNumber}>Route {bookingDetails.routeNumber}</Text>
+            <Text style={styles.operatorName}>{bookingData.tripData.operator?.name || 'Bus Operator'}</Text>
+            <Text style={styles.routeNumber}>{bookingData.tripData.routeName || 'Route'}</Text>
           </View>
         </View>
 
         {/* Passenger Information */}
-        <View style={styles.passengersCard}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Passenger Information</Text>
-            <TouchableOpacity onPress={addPassenger} style={styles.addButton}>
-              <Text style={styles.addButtonText}>+ Add Passenger</Text>
-            </TouchableOpacity>
+        {/* <View style={styles.passengersCard}>
+          <Text style={styles.sectionTitle}>Passenger Information</Text>
+          <View style={styles.passengerInfoDisplay}>
+            <Text style={styles.passengerNote}>
+              Booking for: 1 passenger (Single passenger booking only)
+            </Text>
           </View>
+        </View> */}
 
-          {passengers.map((passenger, index) => (
-            <View key={passenger.id} style={styles.passengerForm}>
-              <View style={styles.passengerHeader}>
-                <Text style={styles.passengerTitle}>Passenger {index + 1}</Text>
-                {passengers.length > 1 && (
-                  <TouchableOpacity
-                    onPress={() => removePassenger(passenger.id)}
-                    style={styles.removeButton}
-                  >
-                    <Text style={styles.removeButtonText}>Remove</Text>
-                  </TouchableOpacity>
-                )}
+        {/* Seat Selection (Optional) */}
+        <View style={styles.seatCard}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Seat Selection</Text>
+            <Text style={styles.optionalText}>(Optional)</Text>
+          </View>
+          
+          {selectedSeat ? (
+            <View style={styles.selectedSeatContainer}>
+              <View style={styles.seatSelectedInfo}>
+                <CheckCircle size={20} color="#1DD724" />
+                <Text style={styles.selectedSeatText}>Seat {selectedSeat} selected</Text>
               </View>
-
-              <View style={styles.formRow}>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Full Name</Text>
-                  <View style={styles.inputWrapper}>
-                    <User size={16} color="#6B7280" />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Enter full name"
-                      value={passenger.name}
-                      onChangeText={(text) => updatePassenger(passenger.id, 'name', text)}
-                    />
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.formRow}>
-                <View style={[styles.inputContainer, { flex: 1, marginRight: 8 }]}>
-                  <Text style={styles.inputLabel}>Age</Text>
-                  <TextInput
-                    style={styles.textInputSmall}
-                    placeholder="Age"
-                    keyboardType="numeric"
-                    value={passenger.age}
-                    onChangeText={(text) => updatePassenger(passenger.id, 'age', text)}
-                  />
-                </View>
-                <View style={[styles.inputContainer, { flex: 1, marginLeft: 8 }]}>
-                  <Text style={styles.inputLabel}>Gender</Text>
-                  <View style={styles.genderContainer}>
-                    <TouchableOpacity
-                      onPress={() => updatePassenger(passenger.id, 'gender', 'male')}
-                      style={[
-                        styles.genderButton,
-                        passenger.gender === 'male' && styles.genderButtonActive
-                      ]}
-                    >
-                      <Text style={[
-                        styles.genderText,
-                        passenger.gender === 'male' && styles.genderTextActive
-                      ]}>
-                        Male
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => updatePassenger(passenger.id, 'gender', 'female')}
-                      style={[
-                        styles.genderButton,
-                        passenger.gender === 'female' && styles.genderButtonActive
-                      ]}
-                    >
-                      <Text style={[
-                        styles.genderText,
-                        passenger.gender === 'female' && styles.genderTextActive
-                      ]}>
-                        Female
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.formRow}>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Phone Number</Text>
-                  <View style={styles.inputWrapper}>
-                    <Phone size={16} color="#6B7280" />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="+94 77 123 4567"
-                      keyboardType="phone-pad"
-                      value={passenger.phone}
-                      onChangeText={(text) => updatePassenger(passenger.id, 'phone', text)}
-                    />
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.formRow}>
-                <View style={styles.inputContainer}>
-                  <Text style={styles.inputLabel}>Email Address</Text>
-                  <View style={styles.inputWrapper}>
-                    <Mail size={16} color="#6B7280" />
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="email@example.com"
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      value={passenger.email}
-                      onChangeText={(text) => updatePassenger(passenger.id, 'email', text)}
-                    />
-                  </View>
-                </View>
-              </View>
+              <TouchableOpacity onPress={handleSeatSelection} style={styles.changeSeatButton}>
+                <Text style={styles.changeSeatText}>Change Seat</Text>
+              </TouchableOpacity>
             </View>
-          ))}
+          ) : (
+            <TouchableOpacity onPress={handleSeatSelection} style={styles.selectSeatButton}>
+              <Text style={styles.selectSeatText}>Select Seat</Text>
+              <ArrowRight size={16} color="#004CFF" />
+            </TouchableOpacity>
+          )}
+          
+          <Text style={styles.seatNote}>
+            Seat selection is optional. If no seat is selected, one will be assigned automatically.
+          </Text>
         </View>
 
         {/* Price Summary */}
         <View style={styles.priceCard}>
           <Text style={styles.sectionTitle}>Price Summary</Text>
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>Base fare ({passengers.length} passenger{passengers.length > 1 ? 's' : ''})</Text>
-            <Text style={styles.priceValue}>LKR {bookingDetails.price * passengers.length}</Text>
+            <Text style={styles.priceLabel}>Base fare (1 passenger)</Text>
+            <Text style={styles.priceValue}>{formatFare(bookingData.fareAmount)}</Text>
           </View>
           <View style={styles.priceRow}>
             <Text style={styles.priceLabel}>Service fee</Text>
             <Text style={styles.priceValue}>LKR 25</Text>
           </View>
+          {selectedSeat && (
+            <View style={styles.priceRow}>
+              <Text style={styles.priceLabel}>Seat reservation</Text>
+              <Text style={styles.priceValue}>LKR 50</Text>
+            </View>
+          )}
           <View style={styles.divider} />
           <View style={styles.priceRow}>
             <Text style={styles.totalLabel}>Total Amount</Text>
-            <Text style={styles.totalValue}>LKR {(bookingDetails.price * passengers.length) + 25}</Text>
+            <Text style={styles.totalValue}>
+              {formatFare(bookingData.fareAmount + 25 + (selectedSeat ? 50 : 0))}
+            </Text>
           </View>
         </View>
       </ScrollView>
 
-      {/* Continue Button */}
+      {/* Confirm Booking Button */}
       <View style={styles.continueContainer}>
         <TouchableOpacity
-          onPress={() => router.push('/search/seat-selection')}
+          onPress={handleConfirmBooking}
           style={styles.continueButton}
         >
-          <Text style={styles.continueButtonText}>Continue to Seat Selection</Text>
+          <Text style={styles.continueButtonText}>Confirm Booking</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -247,27 +181,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F3F4F9',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backgroundColor: '#004CFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#003CC7',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
   content: {
     flex: 1,
     paddingHorizontal: 24,
@@ -278,6 +191,11 @@ const styles = StyleSheet.create({
     padding: 20,
     marginTop: 16,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   sectionTitle: {
     fontSize: 18,
@@ -297,6 +215,7 @@ const styles = StyleSheet.create({
   tripText: {
     fontSize: 14,
     color: '#6B7280',
+    flex: 1,
   },
   operatorInfo: {
     paddingTop: 16,
@@ -318,6 +237,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -326,15 +250,18 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#004CFF',
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#EBF2FF',
+    paddingVertical: 8,
     borderRadius: 8,
+    gap: 6,
   },
   addButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#004CFF',
+    color: '#FFFFFF',
   },
   passengerForm: {
     marginBottom: 24,
@@ -344,14 +271,28 @@ const styles = StyleSheet.create({
   },
   passengerHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+  },
+  passengerBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#004CFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  passengerBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'white',
   },
   passengerTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
+    flex: 1,
   },
   removeButton: {
     paddingHorizontal: 8,
@@ -390,16 +331,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#111827',
   },
-  textInputSmall: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#111827',
-  },
   genderContainer: {
     flexDirection: 'row',
     gap: 8,
@@ -425,11 +356,24 @@ const styles = StyleSheet.create({
   genderTextActive: {
     color: 'white',
   },
+  passengerNotes: {
+    marginTop: 8,
+  },
+  noteText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontStyle: 'italic',
+  },
   priceCard: {
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 20,
     marginBottom: 120,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
   },
   priceRow: {
     flexDirection: 'row',
@@ -471,6 +415,11 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 5,
   },
   continueButton: {
     backgroundColor: '#004CFF',
@@ -478,9 +427,94 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
+  continueButtonDisabled: {
+    backgroundColor: '#93C5FD',
+  },
   continueButtonText: {
     fontSize: 18,
     fontWeight: '600',
     color: 'white',
+  },
+  // New styles for updated booking confirmation UI
+  passengerInfoDisplay: {
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  passengerNote: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  seatCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  optionalText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
+  selectedSeatContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#F0F9FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1DD724',
+    marginTop: 12,
+  },
+  seatSelectedInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  selectedSeatText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1DD724',
+  },
+  changeSeatButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#E0F2FE',
+    borderRadius: 8,
+  },
+  changeSeatText: {
+    fontSize: 14,
+    color: '#004CFF',
+    fontWeight: '500',
+  },
+  selectSeatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginTop: 12,
+  },
+  selectSeatText: {
+    fontSize: 16,
+    color: '#004CFF',
+    fontWeight: '500',
+  },
+  seatNote: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 12,
+    lineHeight: 16,
   },
 });

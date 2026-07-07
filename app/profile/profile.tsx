@@ -1,5 +1,6 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, Image, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
   User,
@@ -11,50 +12,72 @@ import {
 } from 'lucide-react-native';
 import { useAuth } from '@/context/AuthContext';
 import AppHeader from '@/components/ui/AppHeader';
+import { PassengerControllerService, PassengerDTO } from '@/lib/api-client/user-management';
 
 export default function ProfileInfoScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const [profileData, setProfileData] = useState<PassengerDTO | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Fallback if user is not loaded
-  if (!user) {
+  // Fetch profile data from API
+  const fetchProfileData = async () => {
+    if (!user?.id) return;
+    
+    try {
+      setIsLoading(true);
+      const response = await PassengerControllerService.getPassengerById(user.id);
+      setProfileData(response);
+    } catch (error: any) {
+      console.error('Error fetching profile data:', error);
+      Alert.alert(
+        'Error',
+        'Failed to load profile information. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfileData();
+  }, [user?.id]);
+
+  // Show loading state
+  if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <AppHeader title="Profile Information" />
-        <View style={styles.content}>
-          <Text>Loading profile information...</Text>
+        <View style={[styles.content, styles.centered]}>
+          <ActivityIndicator size="large" color="#004CFF" />
+          <Text style={styles.loadingText}>Loading profile information...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  // Add a function to map image paths to require statements
+  // Fallback if user is not loaded or profile data is not available
+  if (!user || !profileData) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <AppHeader title="Profile Information" />
+        <View style={styles.content}>
+          <Text>Failed to load profile information.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Use placeholder image instead of problematic asset images
   const getProfileImage = (imagePath: string | undefined) => {
-    if (!imagePath) return require('@/assets/users/kavinda.png');
-    
-    // Map each possible image path to its require statement
-    switch (imagePath) {
-      case '/assets/users/kavinda.png':
-      case '@/assets/users/kavinda.png':
-        return require('@/assets/users/kavinda.png');
-      case '/assets/users/manusha.png':
-      case '@/assets/users/manusha.png':
-        return require('@/assets/users/manusha.png');
-      case '/assets/users/nadun.png':
-      case '@/assets/users/nadun.png':
-        return require('@/assets/users/nadun.png');
-      case '/assets/users/nethmi.png':
-      case '@/assets/users/nethmi.png':
-        return require('@/assets/users/nethmi.png');
-      case '/assets/users/chamudi.png':
-      case '@/assets/users/chamudi.png':
-        return require('@/assets/users/chamudi.png');
-      case '/assets/users/ishan.png':
-      case '@/assets/users/ishan.png':
-        return require('@/assets/users/ishan.png');
-      default:
-        return require('@/assets/users/kavinda.png');
-    }
+    return { uri: 'https://iamkavinda.vercel.app/assets/profile-photo-CCXUFtA8.jpeg' };
+  };
+
+  // Format member since date for display
+  const formatMemberSince = (memberSince: string) => {
+    if (!memberSince) return 'Recently';
+    return memberSince;
   };
 
   return (
@@ -68,80 +91,114 @@ export default function ProfileInfoScreen() {
             source={getProfileImage(user?.profileImage)}
             style={styles.profileImage} 
           />
-          <Text style={styles.nameText}>{user.name}</Text>
-          <Text style={styles.memberSinceText}>Member since {user.memberSince}</Text>
+          <Text style={styles.nameText}>{profileData.fullName || profileData.username || 'Unknown'}</Text>
+          <Text style={styles.memberSinceText}>
+            {profileData.accountStatus === 'ACTIVE' ? 'Active Member' : 'Member'} 
+            {profileData.isVerified && ' • Verified'}
+          </Text>
         </View>
 
         <View style={styles.infoCardContainer}>
-            {/* Info Card */}
-        <View style={styles.infoCard}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
+          {/* Info Card */}
+          <View style={styles.infoCard}>
+            <Text style={styles.sectionTitle}>Personal Information</Text>
 
-          <View style={styles.infoItem}>
-            <View style={styles.infoIconContainer}>
-              <User size={20} color="#004CFF" />
+            <View style={styles.infoItem}>
+              <View style={styles.infoIconContainer}>
+                <User size={20} color="#004CFF" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Full Name</Text>
+                <Text style={styles.infoValue}>{profileData.fullName || 'Not provided'}</Text>
+              </View>
             </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Full Name</Text>
-              <Text style={styles.infoValue}>{user.name}</Text>
+
+            <View style={styles.infoItem}>
+              <View style={styles.infoIconContainer}>
+                <User size={20} color="#004CFF" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Username</Text>
+                <Text style={styles.infoValue}>{profileData.username || 'Not provided'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoItem}>
+              <View style={styles.infoIconContainer}>
+                <Mail size={20} color="#004CFF" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Email Address</Text>
+                <Text style={styles.infoValue}>{profileData.email || 'Not provided'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoItem}>
+              <View style={styles.infoIconContainer}>
+                <User size={20} color="#004CFF" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Role</Text>
+                <Text style={styles.infoValue}>{profileData.role || 'Passenger'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.infoItem}>
+              <View style={styles.infoIconContainer}>
+                <Mail size={20} color="#004CFF" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Account Status</Text>
+                <Text style={[styles.infoValue, {color: profileData.accountStatus === 'ACTIVE' ? '#10B981' : '#EF4444'}]}>
+                  {profileData.accountStatus || 'Unknown'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.infoItem}>
+              <View style={styles.infoIconContainer}>
+                <Mail size={20} color="#004CFF" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Email Verified</Text>
+                <Text style={[styles.infoValue, {color: profileData.isVerified ? '#10B981' : '#EF4444'}]}>
+                  {profileData.isVerified ? 'Verified' : 'Not Verified'}
+                </Text>
+              </View>
             </View>
           </View>
 
-          <View style={styles.infoItem}>
-            <View style={styles.infoIconContainer}>
-              <Mail size={20} color="#004CFF" />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Email Address</Text>
-              <Text style={styles.infoValue}>{user.email}</Text>
+          {/* Notification Preferences Card */}
+          <View style={styles.infoCard}>
+            <Text style={styles.sectionTitle}>Preferences</Text>
+
+            <View style={styles.infoItem}>
+              <View style={styles.infoIconContainer}>
+                <Mail size={20} color="#004CFF" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Notification Preferences</Text>
+                <Text style={styles.infoValue}>
+                  {profileData.notification_preferences || 'Default settings'}
+                </Text>
+              </View>
             </View>
           </View>
 
-          <View style={styles.infoItem}>
-            <View style={styles.infoIconContainer}>
-              <Phone size={20} color="#004CFF" />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Phone Number</Text>
-              <Text style={styles.infoValue}>{user.phone}</Text>
-            </View>
-          </View>
+          {/* System Information Card */}
+          {/* <View style={styles.infoCard}>
+            <Text style={styles.sectionTitle}>System Information</Text>
 
-          <View style={styles.infoItem}>
-            <View style={styles.infoIconContainer}>
-              <Calendar size={20} color="#004CFF" />
+            <View style={styles.infoItem}>
+              <View style={styles.infoIconContainer}>
+                <User size={20} color="#004CFF" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>User ID</Text>
+                <Text style={styles.infoValue}>{profileData.userId || 'Not available'}</Text>
+              </View>
             </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Date of Birth</Text>
-              <Text style={styles.infoValue}>{user.dob || 'Not provided'}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Address Card */}
-        <View style={styles.infoCard}>
-          <Text style={styles.sectionTitle}>Contact Information</Text>
-
-          <View style={styles.infoItem}>
-            <View style={styles.infoIconContainer}>
-              <MapPin size={20} color="#004CFF" />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Address</Text>
-              <Text style={styles.infoValue}>{user.address || 'Not provided'}</Text>
-            </View>
-          </View>
-
-          <View style={styles.infoItem}>
-            <View style={styles.infoIconContainer}>
-              <MapPin size={20} color="#004CFF" />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>City</Text>
-              <Text style={styles.infoValue}>{user.city || 'Not provided'}</Text>
-            </View>
-          </View>
-        </View>
+          </View> */}
         </View>
       </ScrollView>
 
@@ -261,5 +318,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 12,
   },
 });

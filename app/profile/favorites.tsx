@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, SafeAreaView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
   MapPin, 
@@ -7,58 +8,38 @@ import {
   Clock,
   Heart,
   ChevronRight,
-  Search
+  Search,
+  Bus,
+  Navigation,
+  ArrowRight
 } from 'lucide-react-native';
+import { useAuth } from '@/context/AuthContext';
+import { MockUserService } from '@/services/mockUserService';
 import AppHeader from '@/components/ui/AppHeader';
 
 export default function FavoritesScreen() {
   const router = useRouter();
+  const { user } = useAuth();
 
-  // Mock favorite routes data
-  const favoriteRoutes = [
-    {
-      id: '1',
-      from: 'Colombo Fort',
-      to: 'Kandy',
-      frequentTime: 'Weekdays, Morning',
-      lastUsed: '2 days ago',
-    },
-    {
-      id: '2',
-      from: 'Colombo Fort',
-      to: 'Galle',
-      frequentTime: 'Weekends',
-      lastUsed: '1 week ago',
-    },
-    {
-      id: '3',
-      from: 'Nugegoda',
-      to: 'Colombo Fort',
-      frequentTime: 'Weekdays, Evening',
-      lastUsed: 'Yesterday',
-    },
-    {
-      id: '4',
-      from: 'Kandy',
-      to: 'Colombo Fort',
-      frequentTime: 'Monthly',
-      lastUsed: '3 weeks ago',
-    },
-    {
-      id: '5',
-      from: 'Gampaha',
-      to: 'Colombo Fort',
-      frequentTime: 'Weekdays',
-      lastUsed: '5 days ago',
-    }
-  ];
+  // Get user's favorite routes from mock data
+  const favoriteRoutes = user?.email ? MockUserService.getFavoriteRoutes(user.email) : [];
 
-  const navigateToSearch = (from, to) => {
+  const navigateToSearch = (from: string, to: string) => {
     // Navigate to search screen with pre-filled values
     router.push({
-      pathname: '/search',
-      params: { from, to }
+      pathname: '/search/results',
+      params: { 
+        from, 
+        to,
+        date: new Date().toISOString().split('T')[0],
+        passengers: '1'
+      }
     });
+  };
+
+  const handleToggleFavorite = (routeId: string) => {
+    // TODO: Implement favorite toggle logic
+    console.log('Toggle favorite for route:', routeId);
   };
 
   return (
@@ -79,42 +60,86 @@ export default function FavoritesScreen() {
                 <TouchableOpacity
                   key={route.id}
                   style={styles.routeCard}
+                  activeOpacity={0.7}
                   onPress={() => navigateToSearch(route.from, route.to)}
                 >
-                  <View style={styles.routeInfo}>
-                    <View style={styles.routePoints}>
-                      <View style={styles.pointRow}>
+                  {/* Route Information */}
+                  <View style={styles.routeContent}>
+                    <View style={styles.locationContainer}>
+                      {/* Location labels above route path */}
+                      <View style={styles.locationLabels}>
+                        <Text style={styles.fromLocationLabel}>{route.from}</Text>
+                        <Text style={styles.toLocationLabel}>{route.to}</Text>
+                      </View>
+                      
+                      <View style={styles.routePathContainer}>
                         <View style={styles.originDot} />
-                        <Text style={styles.locationText}>{route.from}</Text>
-                      </View>
-                      
-                      <View style={styles.routeLine} />
-                      
-                      <View style={styles.pointRow}>
+                        <View style={styles.routeLine} />
+                        <View style={styles.routeIcon}>
+                          <Bus size={16} color="#6B7280" />
+                        </View>
+                        <View style={styles.routeLine} />
                         <View style={styles.destinationDot} />
-                        <Text style={styles.locationText}>{route.to}</Text>
                       </View>
-                    </View>
-                    
-                    <View style={styles.routeDetails}>
-                      <View style={styles.detailRow}>
-                        <Clock size={14} color="#6B7280" />
-                        <Text style={styles.detailText}>{route.frequentTime}</Text>
-                      </View>
-                      <View style={styles.detailRow}>
-                        <Text style={styles.lastUsedText}>Last used {route.lastUsed}</Text>
+
+                      {/* Route Details */}
+                      <View style={styles.routeMetrics}>
+                        <View style={styles.metricItem}>
+                          <Clock size={14} color="#6B7280" />
+                          <Text style={styles.metricText}>{route.frequentTime}</Text>
+                        </View>
+                        <View style={styles.metricDivider} />
+                        <View style={styles.metricItem}>
+                          <Text style={styles.metricText}>Last used {route.lastUsed}</Text>
+                        </View>
                       </View>
                     </View>
                   </View>
-                  
-                  <View style={styles.routeActions}>
-                    <TouchableOpacity style={styles.favoriteButton}>
-                      <Heart size={18} color="#FF3831" fill="#FF3831" />
+
+                  {/* Action Buttons */}
+                  <View style={styles.routeFooter}>
+                    <TouchableOpacity 
+                      style={styles.searchRouteButton}
+                      onPress={() => navigateToSearch(route.from, route.to)}
+                    >
+                      <Search size={16} color="#004CFF" />
+                      <Text style={styles.searchRouteText}>Search Buses</Text>
                     </TouchableOpacity>
-                    <ChevronRight size={20} color="#9CA3AF" />
+                    
+                    <TouchableOpacity 
+                      style={styles.favoriteButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleToggleFavorite(route.id);
+                      }}
+                    >
+                      <Heart
+                        size={20}
+                        color="#FF3831"
+                        fill="#FF3831"
+                      />
+                    </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
               ))}
+
+              {/* Add New Route Card */}
+              <TouchableOpacity
+                style={styles.addRouteCard}
+                onPress={() => router.push('/search')}
+                activeOpacity={0.7}
+              >
+                <View style={styles.addRouteIconContainer}>
+                  <View style={styles.addRouteIcon}>
+                    <Navigation size={24} color="#004CFF" />
+                  </View>
+                </View>
+                <View style={styles.addRouteContent}>
+                  <Text style={styles.addRouteTitle}>Find New Route</Text>
+                  <Text style={styles.addRouteSubtitle}>Discover new destinations</Text>
+                </View>
+                <ArrowRight size={20} color="#004CFF" />
+              </TouchableOpacity>
             </View>
           </>
         ) : (
@@ -156,81 +181,172 @@ const styles = StyleSheet.create({
   },
   routesContainer: {
     marginBottom: 24,
+    gap: 16,
   },
   routeCard: {
-    flexDirection: 'row',
     backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 20,
+    padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  routeContent: {
+    marginBottom: 16,
+  },
+  locationContainer: {
+    marginBottom: 12,
+  },
+  locationLabels: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  routeInfo: {
-    flex: 1,
-  },
-  routePoints: {
     marginBottom: 12,
   },
-  pointRow: {
+  fromLocationLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  toLocationLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  routePathContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 4,
+    marginBottom: 12,
+  },
+  routeLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: '#E5E7EB',
+  },
+  routeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 8,
   },
   originDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#10B981',
-    marginRight: 12,
+    backgroundColor: '#004CFF',
+    shadowColor: '#004CFF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   destinationDot: {
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#F97316',
-    marginRight: 12,
+    backgroundColor: '#FF3831',
+    shadowColor: '#FF3831',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
-  locationText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#111827',
-  },
-  routeLine: {
-    width: 2,
-    height: 16,
-    backgroundColor: '#E5E7EB',
-    marginLeft: 5,
-  },
-  routeDetails: {
-    marginTop: 4,
-  },
-  detailRow: {
+  routeMetrics: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
+    gap: 12,
   },
-  detailText: {
+  metricItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  metricText: {
     fontSize: 14,
     color: '#6B7280',
-    marginLeft: 6,
+    fontWeight: '500',
   },
-  lastUsedText: {
-    fontSize: 13,
-    color: '#9CA3AF',
+  metricDivider: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D1D5DB',
   },
-  routeActions: {
+  routeFooter: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 16,
+  },
+  searchRouteButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    backgroundColor: '#F8FAFF',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5EFFF',
+  },
+  searchRouteText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#004CFF',
   },
   favoriteButton: {
-    padding: 8,
-    marginRight: 8,
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  addRouteCard: {
+    backgroundColor: '#F8FAFF',
+    borderRadius: 20,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    borderWidth: 2,
+    borderColor: '#E5EFFF',
+    borderStyle: 'dashed',
+  },
+  addRouteIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addRouteIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: '#EBF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addRouteContent: {
+    flex: 1,
+  },
+  addRouteTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  addRouteSubtitle: {
+    fontSize: 14,
+    color: '#6B7280',
   },
   emptyState: {
     flex: 1,
